@@ -1,0 +1,75 @@
+// DO NOT EDIT. This is code generated via package:easy_localization/generate.dart
+
+// ignore_for_file: constant_identifier_names
+
+abstract class  LocaleKeys {
+  static const app_name = 'app_name';
+  static const connection_status = 'connection.status';
+  static const connection_connected = 'connection.connected';
+  static const connection_connecting = 'connection.connecting';
+  static const connection_disconnected = 'connection.disconnected';
+  static const connection_url = 'connection.url';
+  static const connection_connect = 'connection.connect';
+  static const connection_disconnect = 'connection.disconnect';
+  static const connection_failed_to_connect = 'connection.failed_to_connect';
+  static const connection_not_connected = 'connection.not_connected';
+  static const connection_enter_url = 'connection.enter_url';
+  static const connection = 'connection';
+  static const control_title = 'control.title';
+  static const control_manual = 'control.manual';
+  static const control_auto = 'control.auto';
+  static const control_settings = 'control.settings';
+  static const control_stop = 'control.stop';
+  static const control_pause = 'control.pause';
+  static const control_resume = 'control.resume';
+  static const control_speed = 'control.speed';
+  static const control_distance = 'control.distance';
+  static const control_degrees = 'control.degrees';
+  static const control_position = 'control.position';
+  static const control = 'control';
+  static const servos_title = 'servos.title';
+  static const servos_base = 'servos.base';
+  static const servos_shoulder = 'servos.shoulder';
+  static const servos_elbow = 'servos.elbow';
+  static const servos_wrist = 'servos.wrist';
+  static const servos_gripper = 'servos.gripper';
+  static const servos = 'servos';
+  static const rail_title = 'rail.title';
+  static const rail_distance = 'rail.distance';
+  static const rail_position = 'rail.position';
+  static const rail = 'rail';
+  static const base_title = 'base.title';
+  static const base_degrees = 'base.degrees';
+  static const base = 'base';
+  static const presets_title = 'presets.title';
+  static const presets_save = 'presets.save';
+  static const presets_name = 'presets.name';
+  static const presets_description = 'presets.description';
+  static const presets_execute = 'presets.execute';
+  static const presets_delete = 'presets.delete';
+  static const presets_no_presets = 'presets.no_presets';
+  static const presets_created_at = 'presets.created_at';
+  static const presets_steps = 'presets.steps';
+  static const presets = 'presets';
+  static const theme_light = 'theme.light';
+  static const theme_dark = 'theme.dark';
+  static const theme_switch = 'theme.switch';
+  static const theme = 'theme';
+  static const settings_page_title = 'settings_page.title';
+  static const settings_page_connection_settings = 'settings_page.connection_settings';
+  static const settings_page_aesthetic_language = 'settings_page.aesthetic_language';
+  static const settings_page_language = 'settings_page.language';
+  static const settings_page_about = 'settings_page.about';
+  static const settings_page_app_name = 'settings_page.app_name';
+  static const settings_page_version = 'settings_page.version';
+  static const settings_page_developer = 'settings_page.developer';
+  static const settings_page_build = 'settings_page.build';
+  static const settings_page = 'settings_page';
+  static const simulation_title = 'simulation.title';
+  static const simulation_subtitle = 'simulation.subtitle';
+  static const simulation_base = 'simulation.base';
+  static const simulation_shoulder = 'simulation.shoulder';
+  static const simulation_elbow = 'simulation.elbow';
+  static const simulation = 'simulation';
+
+}

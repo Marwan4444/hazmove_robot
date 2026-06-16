@@ -1,0 +1,79 @@
+{
+  "app_name": "HazMove Robot Control",
+  "connection": {
+    "status": "Connection Status",
+    "connected": "CONNECTED",
+    "connecting": "CONNECTING...",
+    "disconnected": "DISCONNECTED",
+    "url": "WebSocket URL",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "failed_to_connect": "Failed to connect",
+    "not_connected": "Not connected",
+    "enter_url": "Enter WebSocket URL"
+  },
+  "control": {
+    "title": "Quick Controls",
+    "manual": "Manual Mode",
+    "auto": "Auto Mode",
+    "settings": "Settings",
+    "stop": "STOP ALL",
+    "pause": "PAUSE",
+    "resume": "RESUME",
+    "speed": "Speed",
+    "distance": "Distance (cm)",
+    "degrees": "Degrees",
+    "position": "Position"
+  },
+  "servos": {
+    "title": "Servo Motors",
+    "base": "Base",
+    "shoulder": "Shoulder",
+    "elbow": "Elbow",
+    "wrist": "Wrist",
+    "gripper": "Gripper"
+  },
+  "rail": {
+    "title": "Linear Rail",
+    "distance": "Distance",
+    "position": "Position"
+  },
+  "base": {
+    "title": "Base Rotation",
+    "degrees": "Degrees"
+  },
+  "presets": {
+    "title": "Movement Presets",
+    "save": "Save Preset",
+    "name": "Preset Name",
+    "description": "Description",
+    "execute": "RUN",
+    "delete": "Delete",
+    "no_presets": "No presets found. Create one above!",
+    "created_at": "Created at",
+    "steps": "steps"
+  },
+  "theme": {
+    "light": "Light Theme",
+    "dark": "Dark Theme",
+    "switch": "Switch Theme"
+  },
+  "settings_page": {
+    "title": "Settings",
+    "connection_settings": "Connection Settings",
+    "aesthetic_language": "Aesthetic & Language",
+    "language": "Language",
+    "about": "About",
+    "app_name": "App Name",
+    "version": "Version",
+    "developer": "Developer",
+    "build": "Build"
+  },
+  "simulation": {
+    "title": "Interactive Simulation",
+    "subtitle": "Control the robot arm angles to see the movement",
+    "base": "Base Rotation",
+    "shoulder": "Shoulder Angle",
+    "elbow": "Elbow Angle"
+  }
+}

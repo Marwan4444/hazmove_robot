@@ -1,0 +1,79 @@
+{
+  "app_name": "هازموف للتحكم بالروبوت",
+  "connection": {
+    "status": "حالة الاتصال",
+    "connected": "متصل",
+    "connecting": "جاري الاتصال...",
+    "disconnected": "غير متصل",
+    "url": "رابط الـ WebSocket",
+    "connect": "اتصال",
+    "disconnect": "قطع الاتصال",
+    "failed_to_connect": "فشل الاتصال",
+    "not_connected": "غير متصل بالروبوت",
+    "enter_url": "أدخل رابط الـ WebSocket"
+  },
+  "control": {
+    "title": "التحكم السريع",
+    "manual": "الوضع اليدوي",
+    "auto": "الوضع التلقائي",
+    "settings": "الإعدادات",
+    "stop": "إيقاف الكل",
+    "pause": "إيقاف مؤقت",
+    "resume": "استئناف",
+    "speed": "السرعة",
+    "distance": "المسافة (سم)",
+    "degrees": "الدرجات",
+    "position": "الموقع"
+  },
+  "servos": {
+    "title": "محركات السيرفو",
+    "base": "القاعدة",
+    "shoulder": "الكتف",
+    "elbow": "المرفق",
+    "wrist": "المعصم",
+    "gripper": "المقبض"
+  },
+  "rail": {
+    "title": "المحور الخطي",
+    "distance": "المسافة",
+    "position": "الموقع"
+  },
+  "base": {
+    "title": "دوران القاعدة",
+    "degrees": "الدرجات"
+  },
+  "presets": {
+    "title": "الحركات المحفوظة",
+    "save": "حفظ الحركة",
+    "name": "اسم الحركة",
+    "description": "الوصف",
+    "execute": "تشغيل",
+    "delete": "حذف",
+    "no_presets": "لا توجد حركات محفوظة. قم بإنشاء واحدة جديدة!",
+    "created_at": "أنشئت في",
+    "steps": "خطوات"
+  },
+  "theme": {
+    "light": "المظهر الفاتح",
+    "dark": "المظهر الداكن",
+    "switch": "تغيير المظهر"
+  },
+  "settings_page": {
+    "title": "الإعدادات",
+    "connection_settings": "إعدادات الاتصال",
+    "aesthetic_language": "المظهر واللغة",
+    "language": "اللغة",
+    "about": "حول التطبيق",
+    "app_name": "اسم التطبيق",
+    "version": "الإصدار",
+    "developer": "المطور",
+    "build": "النسخة"
+  },
+  "simulation": {
+    "title": "المحاكاة التفاعلية",
+    "subtitle": "تحكم بزوايا ذراع الروبوت مباشرة لرؤية الحركة",
+    "base": "دوران القاعدة",
+    "shoulder": "زاوية الكتف",
+    "elbow": "زاوية المرفق"
+  }
+}
