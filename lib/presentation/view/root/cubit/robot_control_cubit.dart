@@ -57,23 +57,32 @@ class RobotControlCubit extends Cubit<RobotControlState> {
   StreamSubscription? _connectionSub;
   StreamSubscription? _statusSub;
 
+  // ─── Safety timeout timers (3s) ────────────────────────────────────────
+  // If ESP32 doesn't respond within 3s, auto-unlock the slider.
+  static const _kMovingTimeout = Duration(seconds: 3);
+  final Map<int, Timer> _servoTimeouts = {}; // key = servo ID
+  Timer? _baseRotationTimeout;
+  Timer? _linearRailTimeout;
+  // ────────────────────────────────────────────────────────────────────────
+
   static RobotArmModel get defaultRobotArm => RobotArmModel(
         servos: const [
-          ServoModel(id: 1, name: 'Base Servo', currentAngle: 90, targetAngle: 90, speed: 50, isMoving: false),
-          ServoModel(id: 2, name: 'Shoulder Servo', currentAngle: 45, targetAngle: 45, speed: 50, isMoving: false),
-          ServoModel(id: 3, name: 'Elbow Servo', currentAngle: 90, targetAngle: 90, speed: 50, isMoving: false),
-          ServoModel(id: 4, name: 'Wrist Servo', currentAngle: 45, targetAngle: 45, speed: 50, isMoving: false),
-          ServoModel(id: 5, name: 'Gripper Servo', currentAngle: 0, targetAngle: 0, speed: 50, isMoving: false),
+          // Angles match ESP32's InitialPosition() mapped back to 0-180 Flutter range
+          ServoModel(id: 1, name: 'Base Servo',     currentAngle: 0,   targetAngle: 0,   speed: 50, isMoving: false), // HandFB   → 0°
+          ServoModel(id: 2, name: 'Shoulder Servo', currentAngle: 90,  targetAngle: 90,  speed: 50, isMoving: false), // MoveArm  → 50/100 → 90° (mapped)
+          ServoModel(id: 3, name: 'Elbow Servo',    currentAngle: 180, targetAngle: 180, speed: 50, isMoving: false), // HandUD   → 180°
+          ServoModel(id: 4, name: 'Wrist Servo',    currentAngle: 150, targetAngle: 150, speed: 50, isMoving: false), // HandR    → 150°
+          ServoModel(id: 5, name: 'Gripper Servo',  currentAngle: 180, targetAngle: 180, speed: 50, isMoving: false), // HandOC   → 180°
         ],
         linearRail: const LinearRailModel(
-          currentPosition: 50.0,
-          targetPosition: 50.0,
+          currentPosition: 0.0,  // ESP32: currentLinearCM starts at 0
+          targetPosition: 0.0,
           speed: 50,
           isMoving: false,
         ),
         baseRotation: const BaseRotationModel(
-          currentDegrees: 180.0,
-          targetDegrees: 180.0,
+          currentDegrees: 0.0,   // ESP32: currentBaseDegrees starts at 0
+          targetDegrees: 0.0,
           speed: 50,
           isMoving: false,
         ),
@@ -105,7 +114,12 @@ class RobotControlCubit extends Cubit<RobotControlState> {
     _statusSub = _repository.robotStatus.listen((result) {
       result.fold(
         (failure) => emit(state.copyWith(failure: failure)),
-        (robotArm) => emit(state.copyWith(robotArm: robotArm, clearFailure: true)),
+        (robotArm) {
+          // ESP32 sent a status update → cancel all safety timeouts
+          // because movement is confirmed done.
+          _cancelAllTimeouts();
+          emit(state.copyWith(robotArm: robotArm, clearFailure: true));
+        },
       );
     });
   }
@@ -172,6 +186,16 @@ class RobotControlCubit extends Cubit<RobotControlState> {
   }
 
   Future<void> setServoAngle(int servoId, int angle, int speed) async {
+    // ❌ Guard: ignore command if this servo is already moving
+    final servo = state.robotArm?.servos.firstWhere(
+      (s) => s.id == servoId,
+      orElse: () => const ServoModel(
+        id: -1, name: '', currentAngle: 0,
+        targetAngle: 0, speed: 0, isMoving: false,
+      ),
+    );
+    if (servo?.isMoving == true) return;
+
     if (state.robotArm != null) {
       final updatedServos = state.robotArm!.servos.map((s) {
         if (s.id == servoId) {
@@ -179,6 +203,7 @@ class RobotControlCubit extends Cubit<RobotControlState> {
             currentAngle: angle,
             targetAngle: angle,
             speed: speed,
+            isMoving: true,
           );
         }
         return s;
@@ -188,6 +213,12 @@ class RobotControlCubit extends Cubit<RobotControlState> {
       ));
     }
 
+    // Start 3-second safety timeout for this servo
+    _servoTimeouts[servoId]?.cancel();
+    _servoTimeouts[servoId] = Timer(_kMovingTimeout, () {
+      _unlockServo(servoId);
+    });
+
     if (state.connectionStatus == ConnectionStatus.connected) {
       final result = await _repository.setServoAngle(servoId, angle, speed);
       result.fold(
@@ -195,6 +226,50 @@ class RobotControlCubit extends Cubit<RobotControlState> {
         (_) => null,
       );
     }
+  }
+
+  /// Updates servo angle in the UI state only (no ESP32 send).
+  /// Use during slider drag; call [setServoAngle] on release.
+  void updateServoAngleLocally(int servoId, int angle, int speed) {
+    if (state.robotArm == null) return;
+    final updatedServos = state.robotArm!.servos.map((s) {
+      if (s.id == servoId) {
+        return s.copyWith(targetAngle: angle, currentAngle: angle, speed: speed);
+      }
+      return s;
+    }).toList();
+    emit(state.copyWith(
+      robotArm: state.robotArm!.copyWith(servos: updatedServos),
+    ));
+  }
+
+  /// Updates linear rail position in the UI state only (no ESP32 send).
+  /// Use during slider drag; call [setLinearPosition] on release.
+  void updateLinearPositionLocally(double position) {
+    if (state.robotArm == null) return;
+    emit(state.copyWith(
+      robotArm: state.robotArm!.copyWith(
+        linearRail: state.robotArm!.linearRail.copyWith(
+          targetPosition: position,
+          currentPosition: position,
+        ),
+      ),
+    ));
+  }
+
+  /// Updates base rotation in the UI state only (no ESP32 send).
+  /// Use during slider drag; call [setBaseRotation] on release.
+  void updateBaseRotationLocally(double degrees, int speed) {
+    if (state.robotArm == null) return;
+    emit(state.copyWith(
+      robotArm: state.robotArm!.copyWith(
+        baseRotation: state.robotArm!.baseRotation.copyWith(
+          targetDegrees: degrees,
+          currentDegrees: degrees,
+          speed: speed,
+        ),
+      ),
+    ));
   }
 
   Future<void> moveLinearRail(double distance, int speed) async {
@@ -220,6 +295,11 @@ class RobotControlCubit extends Cubit<RobotControlState> {
   }
 
   Future<void> setLinearPosition(double position, int speed) async {
+    // ❌ Guard: ignore command if linear rail is already moving
+    if (state.robotArm?.linearRail.isMoving == true) return;
+
+    final currentPos = state.robotArm?.linearRail.currentPosition ?? 0.0;
+
     if (state.robotArm != null) {
       emit(state.copyWith(
         robotArm: state.robotArm!.copyWith(
@@ -227,10 +307,20 @@ class RobotControlCubit extends Cubit<RobotControlState> {
             currentPosition: position,
             targetPosition: position,
             speed: speed,
+            isMoving: true,
           ),
         ),
       ));
     }
+
+    // Dynamic timeout based on real ESP32 speed:
+    // STEPS_PER_CM=2000, step pulse=400μs → ~0.8s per cm + 50% safety margin
+    final distanceCm = (position - currentPos).abs();
+    final dynamicSeconds = ((distanceCm * 0.8 * 1.5).ceil()).clamp(5, 120);
+    _linearRailTimeout?.cancel();
+    _linearRailTimeout = Timer(Duration(seconds: dynamicSeconds), () {
+      _unlockLinearRail();
+    });
 
     if (state.connectionStatus == ConnectionStatus.connected) {
       final result = await _repository.setLinearPosition(position, speed);
@@ -264,6 +354,9 @@ class RobotControlCubit extends Cubit<RobotControlState> {
   }
 
   Future<void> setBaseRotation(double degrees, int speed) async {
+    // ❌ Guard: ignore command if base rotation is already moving
+    if (state.robotArm?.baseRotation.isMoving == true) return;
+
     if (state.robotArm != null) {
       emit(state.copyWith(
         robotArm: state.robotArm!.copyWith(
@@ -271,10 +364,17 @@ class RobotControlCubit extends Cubit<RobotControlState> {
             currentDegrees: degrees,
             targetDegrees: degrees,
             speed: speed,
+            isMoving: true,
           ),
         ),
       ));
     }
+
+    // Start 3-second safety timeout for base rotation
+    _baseRotationTimeout?.cancel();
+    _baseRotationTimeout = Timer(_kMovingTimeout, () {
+      _unlockBaseRotation();
+    });
 
     if (state.connectionStatus == ConnectionStatus.connected) {
       final result = await _repository.setBaseRotation(degrees, speed);
@@ -340,10 +440,54 @@ class RobotControlCubit extends Cubit<RobotControlState> {
     }
   }
 
+  // ─── Timeout unlock helpers ──────────────────────────────────────────────
+
+  void _unlockServo(int servoId) {
+    if (state.robotArm == null) return;
+    final updatedServos = state.robotArm!.servos.map((s) {
+      return s.id == servoId ? s.copyWith(isMoving: false) : s;
+    }).toList();
+    emit(state.copyWith(
+      robotArm: state.robotArm!.copyWith(servos: updatedServos),
+    ));
+  }
+
+  void _unlockBaseRotation() {
+    if (state.robotArm == null) return;
+    emit(state.copyWith(
+      robotArm: state.robotArm!.copyWith(
+        baseRotation: state.robotArm!.baseRotation.copyWith(isMoving: false),
+      ),
+    ));
+  }
+
+  void _unlockLinearRail() {
+    if (state.robotArm == null) return;
+    emit(state.copyWith(
+      robotArm: state.robotArm!.copyWith(
+        linearRail: state.robotArm!.linearRail.copyWith(isMoving: false),
+      ),
+    ));
+  }
+
+  void _cancelAllTimeouts() {
+    for (final t in _servoTimeouts.values) {
+      t.cancel();
+    }
+    _servoTimeouts.clear();
+    _baseRotationTimeout?.cancel();
+    _baseRotationTimeout = null;
+    _linearRailTimeout?.cancel();
+    _linearRailTimeout = null;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+
   @override
   Future<void> close() {
     _connectionSub?.cancel();
     _statusSub?.cancel();
+    _cancelAllTimeouts();
     return super.close();
   }
 }

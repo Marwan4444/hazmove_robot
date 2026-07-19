@@ -26,6 +26,10 @@ abstract class  LocaleKeys {
   static const control_distance = 'control.distance';
   static const control_degrees = 'control.degrees';
   static const control_position = 'control.position';
+  static const control_start_btn = 'control.start_btn';
+  static const control_stop_btn = 'control.stop_btn';
+  static const control_pause_btn = 'control.pause_btn';
+  static const control_reset_btn = 'control.reset_btn';
   static const control = 'control';
   static const servos_title = 'servos.title';
   static const servos_base = 'servos.base';
@@ -71,5 +75,18 @@ abstract class  LocaleKeys {
   static const simulation_shoulder = 'simulation.shoulder';
   static const simulation_elbow = 'simulation.elbow';
   static const simulation = 'simulation';
+  static const auto_modes_mode1 = 'auto_modes.mode1';
+  static const auto_modes_mode1_desc = 'auto_modes.mode1_desc';
+  static const auto_modes_mode2 = 'auto_modes.mode2';
+  static const auto_modes_mode2_desc = 'auto_modes.mode2_desc';
+  static const auto_modes_active = 'auto_modes.active';
+  static const auto_modes_running = 'auto_modes.running';
+  static const auto_modes_paused = 'auto_modes.paused';
+  static const auto_modes_resume = 'auto_modes.resume';
+  static const auto_modes_pause = 'auto_modes.pause';
+  static const auto_modes_stop = 'auto_modes.stop';
+  static const auto_modes_manual_disabled_title = 'auto_modes.manual_disabled_title';
+  static const auto_modes_manual_disabled_desc = 'auto_modes.manual_disabled_desc';
+  static const auto_modes = 'auto_modes';
 
 }

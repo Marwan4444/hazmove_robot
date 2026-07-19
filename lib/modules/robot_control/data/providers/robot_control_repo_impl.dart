@@ -65,11 +65,12 @@ class RobotControlRepoImpl implements RobotControlRepo {
       // Return a default baseline state when requested, status is live updated via streams
       final robotArm = RobotArmModel(
         servos: const [
-          ServoModel(id: 1, name: 'Base', currentAngle: 0, targetAngle: 0, speed: 50, isMoving: false),
-          ServoModel(id: 2, name: 'Shoulder', currentAngle: 90, targetAngle: 90, speed: 50, isMoving: false),
-          ServoModel(id: 3, name: 'Elbow', currentAngle: 45, targetAngle: 45, speed: 50, isMoving: false),
-          ServoModel(id: 4, name: 'Wrist', currentAngle: 0, targetAngle: 0, speed: 50, isMoving: false),
-          ServoModel(id: 5, name: 'Gripper', currentAngle: 0, targetAngle: 0, speed: 50, isMoving: false),
+          // Names match ESP32 sendStatusToClient(), angles match InitialPosition()
+          ServoModel(id: 1, name: 'Base Servo',     currentAngle: 0,   targetAngle: 0,   speed: 50, isMoving: false), // HandFB   → 0°
+          ServoModel(id: 2, name: 'Shoulder Servo', currentAngle: 90,  targetAngle: 90,  speed: 50, isMoving: false), // MoveArm  → 90° (mapped)
+          ServoModel(id: 3, name: 'Elbow Servo',    currentAngle: 180, targetAngle: 180, speed: 50, isMoving: false), // HandUD   → 180°
+          ServoModel(id: 4, name: 'Wrist Servo',    currentAngle: 150, targetAngle: 150, speed: 50, isMoving: false), // HandR    → 150°
+          ServoModel(id: 5, name: 'Gripper Servo',  currentAngle: 180, targetAngle: 180, speed: 50, isMoving: false), // HandOC   → 180°
         ],
         linearRail: const LinearRailModel(
           currentPosition: 0.0,
@@ -94,10 +95,10 @@ class RobotControlRepoImpl implements RobotControlRepo {
   @override
   Future<Either<Failure, void>> moveServo(int servoId, int startAngle, int endAngle, int speed) async {
     try {
+      // ESP32 يقرأ 'end' و 'speed' فقط - 'start' غير مستخدم في ESP32
       final command = {
         'type': RobotCommands.servo,
         'servo_id': servoId,
-        'start': startAngle,
         'end': endAngle,
         'speed': speed,
       };
@@ -111,10 +112,10 @@ class RobotControlRepoImpl implements RobotControlRepo {
   @override
   Future<Either<Failure, void>> setServoAngle(int servoId, int angle, int speed) async {
     try {
+      // ESP32 يقرأ 'end' فقط كزاوية هدف
       final command = {
         'type': RobotCommands.servo,
         'servo_id': servoId,
-        'start': angle,
         'end': angle,
         'speed': speed,
       };

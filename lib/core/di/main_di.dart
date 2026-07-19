@@ -7,6 +7,7 @@ import '../../modules/robot_control/domain/repo/robot_control_repo.dart';
 import '../../modules/robot_control/data/providers/robot_control_repo_impl.dart';
 import '../../presentation/view/root/cubit/robot_control_cubit.dart';
 import '../../presentation/view/auto/cubit/presets_cubit.dart';
+import '../../presentation/view/auto/cubit/auto_modes_cubit.dart';
 import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 import '../network/network_info.dart';
 import '../style/theme_cubit.dart';
@@ -45,5 +46,9 @@ Future<void> initDI() async {
   
   getIt.registerFactory<PresetsCubit>(
     () => PresetsCubit(repository: getIt<RobotControlRepo>()),
+  );
+
+  getIt.registerFactory<AutoModesCubit>(
+    () => AutoModesCubit(repository: getIt<RobotControlRepo>()),
   );
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as dev;
 import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../domain/models/robot_arm_model.dart';
@@ -78,6 +79,10 @@ class RobotRemoteDataSourceApiImp implements RobotRemoteDataSource {
   }
 
   void _handleIncomingData(dynamic data) {
+    // ─── Log every raw message from ESP32 ───────────────────────────────
+    dev.log('[ESP32 ←] $data', name: 'WebSocket');
+    // ────────────────────────────────────────────────────────────────────
+
     final now = DateTime.now();
     if (now.difference(_lastProcessTime).inMilliseconds < _throttleMs) {
       return;
@@ -86,13 +91,16 @@ class RobotRemoteDataSourceApiImp implements RobotRemoteDataSource {
 
     try {
       final Map<String, dynamic> json = jsonDecode(data);
-      
+
+      dev.log('[ESP32 parsed] type=${json['type']} | data=${json['data']}',
+          name: 'WebSocket');
+
       if (json['type'] == 'status') {
         final robotArm = RobotArmModel.fromJson(json['data'] ?? {});
         _statusController.add(robotArm);
       }
     } catch (e) {
-      // Stream error parsing
+      dev.log('[ESP32 parse ERROR] $e | raw=$data', name: 'WebSocket', level: 900);
     }
   }
 

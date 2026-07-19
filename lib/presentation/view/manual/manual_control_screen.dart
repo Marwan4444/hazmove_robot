@@ -7,6 +7,8 @@ import '../../../core/style/glass_container.dart';
 import '../home/widgets/ambient_blob.dart';
 import '../home/widgets/home_background.dart';
 import '../root/cubit/robot_control_cubit.dart';
+import '../../../modules/robot_control/domain/enums/robot_enums.dart';
+import '../auto/cubit/auto_modes_cubit.dart';
 import 'widgets/base_rotation_control_widget.dart';
 import 'widgets/live_values_dashboard.dart';
 import 'widgets/linear_rail_control_widget.dart';
@@ -113,13 +115,76 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
                     onResume: () {
                       context.read<RobotControlCubit>().resumeMovements();
                     },
-                    onReset: () => _resetPosition(context),
                   );
                 },
               ),
             ),
           ),
-          const _ManualAppBar(),
+          BlocBuilder<RobotControlCubit, RobotControlState>(
+            builder: (context, state) {
+              final autoModesCubit = context.watch<AutoModesCubit>();
+              final runningMode = autoModesCubit.state.currentMode;
+              final isAutoMode = state.robotArm?.mode == RobotMode.auto ||
+                  runningMode != AutoModeType.none;
+              if (!isAutoMode) return const SizedBox.shrink();
+
+              String descText = LocaleKeys.auto_modes_manual_disabled_desc.tr();
+              if (runningMode != AutoModeType.none) {
+                final modeName = runningMode == AutoModeType.mode1 
+                    ? LocaleKeys.auto_modes_mode1.tr() 
+                    : LocaleKeys.auto_modes_mode2.tr();
+                
+                if (context.locale.languageCode == 'ar') {
+                  descText = 'الروبوت يعمل حالياً بـ $modeName.\nيرجى إيقاف الوضع النشط أولاً للتحكم يدوياً.';
+                } else {
+                  descText = 'The robot is currently running in $modeName.\nPlease stop the active mode first to control manually.';
+                }
+              }
+
+              return Positioned(
+                top: 100,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  color: Colors.black.withOpacity(0.75),
+                  child: Center(
+                    child: GlassContainer(
+                      padding: const EdgeInsets.all(24),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.lock_outline_rounded, size: 48, color: context.accentSecondary),
+                          const SizedBox(height: 16),
+                          Text(
+                            LocaleKeys.auto_modes_manual_disabled_title.tr(),
+                            style: TextStyle(
+                              color: context.textPrimary,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            descText,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: context.textSecondary,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          _ManualAppBar(
+            onReset: () => _resetPosition(context),
+          ),
         ],
       ),
     );
@@ -130,11 +195,8 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
       return SingleChildScrollView(
         child: LinearRailControlWidget(
           linearRail: state.robotArm?.linearRail,
-          onPositionChanged: (position, speed) {
-            context.read<RobotControlCubit>().setLinearPosition(
-                  position,
-                  speed,
-                );
+          onPositionCommitted: (position) {
+            context.read<RobotControlCubit>().setLinearPosition(position, 50);
           },
         ),
       );
@@ -143,11 +205,13 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
       return SingleChildScrollView(
         child: BaseRotationControlWidget(
           baseRotation: state.robotArm?.baseRotation,
+          // UI-only: update display while dragging
           onRotationChanged: (degrees, speed) {
-            context.read<RobotControlCubit>().setBaseRotation(
-                  degrees,
-                  speed,
-                );
+            context.read<RobotControlCubit>().updateBaseRotationLocally(degrees, speed);
+          },
+          // Send to ESP32 only when finger is lifted
+          onRotationCommitted: (degrees, speed) {
+            context.read<RobotControlCubit>().setBaseRotation(degrees, speed);
           },
         ),
       );
@@ -174,12 +238,15 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
     return SingleChildScrollView(
       child: ServoControlWidget(
         servo: servo,
+        // UI-only: update display while dragging
         onAngleChanged: (angle, speed) {
+          context.read<RobotControlCubit>().updateServoAngleLocally(
+                servo.id, angle, speed);
+        },
+        // Send to ESP32 only when finger is lifted
+        onAngleCommitted: (angle, speed) {
           context.read<RobotControlCubit>().setServoAngle(
-                servo.id,
-                angle,
-                speed,
-              );
+                servo.id, angle, speed);
         },
       ),
     );
@@ -205,7 +272,9 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
 }
 
 class _ManualAppBar extends StatelessWidget {
-  const _ManualAppBar();
+  final VoidCallback onReset;
+
+  const _ManualAppBar({required this.onReset});
 
   @override
   Widget build(BuildContext context) {
@@ -244,7 +313,15 @@ class _ManualAppBar extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 48),
+                IconButton(
+                  onPressed: onReset,
+                  icon: Icon(
+                    Icons.restart_alt_rounded,
+                    color: context.accentPrimary,
+                    size: 22,
+                  ),
+                  tooltip: LocaleKeys.control_reset_btn.tr(),
+                ),
               ],
             ),
           ),

@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:hazmove_robot/presentation/view/root/cubit/robot_control_cubit.dart';
 import '../../../../core/services/localization/locale_keys.g.dart';
 import '../../../../core/extensions/theme_extensions.dart';
+import '../auto/cubit/auto_modes_cubit.dart';
 import 'widgets/animated_robotic_arm.dart';
 import 'widgets/premium_animated_text.dart';
 import 'widgets/control_buttons.dart';
@@ -40,6 +41,17 @@ class HomeScreen extends StatelessWidget {
                       const PremiumAnimatedText(text: 'Hazmove'),
                       const SizedBox(height: 20),
                       Center(child: _buildConnectionIndicator(state)),
+                      BlocBuilder<AutoModesCubit, AutoModesState>(
+                        builder: (context, autoState) {
+                          if (autoState.currentMode == AutoModeType.none) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: _buildActiveModeBadge(context, autoState),
+                          );
+                        },
+                      ),
                       const SizedBox(height: 30),
                       ControlButtons(
                         isConnected: state.connectionStatus == ConnectionStatus.connected,
@@ -59,6 +71,53 @@ class HomeScreen extends StatelessWidget {
           ),
           
           const HomeAppBar(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveModeBadge(BuildContext context, AutoModesState autoState) {
+    final modeName = autoState.currentMode == AutoModeType.mode1 
+        ? LocaleKeys.auto_modes_mode1.tr() 
+        : LocaleKeys.auto_modes_mode2.tr();
+    final isPaused = autoState.modeState == AutoModeState.paused;
+    final stateText = isPaused ? LocaleKeys.auto_modes_paused.tr() : LocaleKeys.auto_modes_running.tr();
+    final color = autoState.currentMode == AutoModeType.mode1 ? context.accentPrimary : context.accentGreen;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.4), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: isPaused ? Colors.orange : color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$modeName: $stateText',
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );

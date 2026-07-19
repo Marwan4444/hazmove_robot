@@ -1,6 +1,6 @@
 class AppConstants {
   // Network
-  static const String defaultWebSocketUrl = 'ws://10.76.62.83:81';
+  static const String defaultWebSocketUrl = 'ws://192.168.4.1:81';
   static const int connectionTimeout = 15000;
   static const int sendTimeout = 5000;
   

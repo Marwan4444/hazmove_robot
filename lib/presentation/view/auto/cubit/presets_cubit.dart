@@ -41,6 +41,11 @@ class PresetsCubit extends Cubit<PresetsState> {
 
   Future<void> loadPresets() async {
     emit(state.copyWith(isLoading: true, clearFailure: true));
+    // Clean up deprecated sample preset 'Pick and Place' (id: '2') from local DB
+    await _repository.deletePreset('2');
+    // Clean up deprecated sample preset 'Home Position' (id: '1') from local DB
+    await _repository.deletePreset('1');
+    
     final result = await _repository.getPresets();
     result.fold(
       (failure) => emit(state.copyWith(isLoading: false, failure: failure)),
@@ -111,42 +116,6 @@ class PresetsCubit extends Cubit<PresetsState> {
   }
 
   List<MovementPresetModel> _getSamplePresets() {
-    return [
-      MovementPresetModel(
-        id: '1',
-        name: 'Home Position',
-        description: 'Return to home position',
-        steps: const [
-          MovementStepModel(
-            type: 'servo',
-            parameters: {'servo_id': 1, 'angle': 0, 'speed': 50},
-          ),
-          MovementStepModel(
-            type: 'servo',
-            parameters: {'servo_id': 2, 'angle': 90, 'speed': 50},
-          ),
-        ],
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-        isFavorite: true,
-      ),
-      MovementPresetModel(
-        id: '2',
-        name: 'Pick and Place',
-        description: 'Pick and place routine',
-        steps: const [
-          MovementStepModel(
-            type: 'linear',
-            parameters: {'distance': 10.0, 'speed': 30},
-            delayMs: 500,
-          ),
-          MovementStepModel(
-            type: 'servo',
-            parameters: {'servo_id': 5, 'angle': 90, 'speed': 30},
-          ),
-        ],
-        createdAt: DateTime.now().subtract(const Duration(days: 2)),
-        isFavorite: false,
-      ),
-    ];
+    return const [];
   }
 }

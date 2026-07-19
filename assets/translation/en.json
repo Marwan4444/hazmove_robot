@@ -23,7 +23,11 @@
     "speed": "Speed",
     "distance": "Distance (cm)",
     "degrees": "Degrees",
-    "position": "Position"
+    "position": "Position",
+    "start_btn": "Start",
+    "stop_btn": "Stop",
+    "pause_btn": "Pause",
+    "reset_btn": "Reset"
   },
   "servos": {
     "title": "Servo Motors",
@@ -75,5 +79,19 @@
     "base": "Base Rotation",
     "shoulder": "Shoulder Angle",
     "elbow": "Elbow Angle"
+  },
+  "auto_modes": {
+    "mode1": "Mode 1",
+    "mode1_desc": "The first pre-programmed robot routine",
+    "mode2": "Mode 2",
+    "mode2_desc": "The second pre-programmed robot routine",
+    "active": "Active",
+    "running": "Running",
+    "paused": "Paused",
+    "resume": "Resume",
+    "pause": "Pause",
+    "stop": "Stop",
+    "manual_disabled_title": "Manual Control Disabled",
+    "manual_disabled_desc": "The robot is currently running in Auto Mode.\nPlease stop the active mode first to control manually."
   }
 }

@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>HazMove Robot Control - Technical Documentation</title>
+<style>
+    body {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        line-height: 1.6;
+        color: #1e293b;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 40px 20px;
+        background-color: #ffffff;
+    }
+    h1 {
+        color: #ff7300;
+        border-bottom: 2px solid #ff7300;
+        padding-bottom: 8px;
+        margin-top: 40px;
+        font-size: 26px;
+    }
+    h2 {
+        color: #0f172a;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 6px;
+        margin-top: 30px;
+        font-size: 20px;
+    }
+    h3 {
+        color: #334155;
+        font-size: 16px;
+        margin-top: 20px;
+    }
+    p {
+        margin: 12px 0;
+        font-size: 14px;
+        text-align: justify;
+    }
+    a {
+        color: #ff7300;
+        text-decoration: none;
+    }
+    a:hover {
+        text-decoration: underline;
+    }
+    ul, ol {
+        margin: 10px 0 20px 20px;
+        padding-left: 10px;
+    }
+    li {
+        margin-bottom: 6px;
+        font-size: 14px;
+    }
+    code {
+        font-family: Consolas, "Courier New", monospace;
+        background-color: #f1f5f9;
+        color: #0f172a;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+    pre {
+        background-color: #0f1115;
+        color: #f8fafc;
+        padding: 16px;
+        border-radius: 8px;
+        overflow-x: auto;
+        border: 1px solid #2d3341;
+        margin: 18px 0;
+    }
+    pre code {
+        background-color: transparent;
+        color: inherit;
+        padding: 0;
+        font-size: 12.5px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        font-size: 13.5px;
+    }
+    th, td {
+        border: 1px solid #cbd5e1;
+        padding: 10px 12px;
+        text-align: left;
+    }
+    th {
+        background-color: #f8fafc;
+        color: #0f172a;
+        font-weight: bold;
+    }
+    tr:nth-child(even) {
+        background-color: #f8fafc;
+    }
+    blockquote {
+        margin: 20px 0;
+        padding: 14px 20px;
+        background-color: #f8fafc;
+        border-left: 4px solid #ff7300;
+        border-radius: 0 8px 8px 0;
+        color: #334155;
+        font-style: italic;
+    }
+    hr {
+        border: 0;
+        border-top: 1px solid #e2e8f0;
+        margin: 30px 0;
+    }
+    .emoji {
+        font-size: 16px;
+        vertical-align: middle;
+    }
+    .mermaid-box {
+        background-color: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 18px 0;
+        font-family: monospace;
+        white-space: pre;
+        font-size: 12px;
+        color: #334155;
+        overflow-x: auto;
+    }
+    .mermaid-title {
+        font-weight: bold;
+        color: #ff7300;
+        margin-bottom: 8px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+</style>
+</head>
+<body>
+<h1>🤖 HAZMOVE ROBOT CONTROL SYSTEM - TECHNICAL DOCUMENTATION</h1>
+<h2>📄 التوثيق التقني التفصيلي لنظام التحكم في ذراع الروبوت HazMove</h2>
+<br/>
+<p>مستند تقني شامل يغطي بنية النظام، هندسة البرمجيات، بروتوكولات الاتصال، والرياضيات المستخدمة في المحاكي البصري ثلاثي الأبعاد لتطبيق التحكم في الذراع الروبوتية المدمجة على سكة خطية (Linear Rail).</p>
+<br/>
+<hr/>
+<br/>
+<h2>🏗️ 1. Architecture Overview (هيكلية النظام العامة)</h2>
+<br/>
+<p>يعتمد تطبيق <strong>Hazmove Robot</strong> على بنية <strong>Clean Architecture</strong> المتوافقة مع مبادئ separation of concerns (فصل المسؤوليات)، مقترنة بنظام إدارة الحالة <strong>BLoC/Cubit</strong> لضمان تدفق البيانات بشكل تفاعلي وفعال.</p>
+<br/>
+<h3>📊 مخطط تدفق البيانات والبنية المعمارية (Data Flow Architecture)</h3>
+<br/>
+<div class="mermaid-box"><div class="mermaid-title">📊 Diagram Architecture Flow</div>graph TD
+    subgraph Presentation Layer [طبقة العرض والواجهات]
+        UI[Flutter Screens / Widgets]
+        RAC[RobotControlCubit]
+        AMC[AutoModesCubit]
+        PC[PresetsCubit]
+    end
+
+    subgraph Domain Layer [طبقة منطق العمل - كود نقي]
+        RepoContract[RobotControlRepo - Interface]
+        Entities[Entities &amp; Models: RobotArmModel, ServoModel, etc.]
+    end
+
+    subgraph Data Layer [طبقة البيانات والاتصالات]
+        RepoImpl[RobotControlRepoImpl]
+        RemoteDS[RobotRemoteDataSourceWebSocket]
+        LocalDS[RobotLocalDataSourceSharedPreferences]
+    end
+
+    subgraph External Devices [الأجهزة الخارجية]
+        WS[WebSocket Robot Controller - IP: 10.76.62.83]
+        SP[Local SharedPreferences Storage]
+    end
+
+    %% التدفقات
+    UI --&gt;|تنفيذ أوامر / تغيير زوايا| RAC &amp; AMC &amp; PC
+    RAC &amp; AMC &amp; PC --&gt;|الاعتماد على العقود| RepoContract
+    RepoImpl -.-&gt;|تنفيذ العقد| RepoContract
+    RepoImpl --&gt;|جلب/إرسال| RemoteDS &amp; LocalDS
+    RemoteDS --&gt;|أوامر JSON / استقبال الحالة| WS
+    LocalDS --&gt;|حفظ الإعدادات والمسارات المخزنة| SP
+    WS --&gt;|تدفق البيانات الحية ~30FPS| RemoteDS
+    RemoteDS --&gt;|بث الحالة المحدثة| RepoImpl
+    RepoImpl --&gt;|بث الحالة عبر Streams| RAC
+    RAC --&gt;|تحديث الحالة وعرض المحاكي| UI
+</div><br/>
+<hr/>
+<br/>
+<h2>🛠️ 2. Core Module & Infrastructure (المكونات الأساسية للنواة)</h2>
+<br/>
+<p>تضم النواة (<code>lib/core</code>) كافة الإعدادات والخدمات المشتركة التي تعتمد عليها الطبقات المختلفة للتطبيق.</p>
+<br/>
+<h3>🔑 2.1 Dependency Injection (حقن الاعتمادية)</h3>
+<p>ملف التكوين الرئيسي <code>lib/core/di/main_di.dart</code> يستخدم مكتبة <code>GetIt</code> لتهيئة الأنماط الفردية (Singletons) والمصانع (Factories) عند بدء تشغيل التطبيق:</p>
+<br/>
+<pre><code class="language-dart">final getIt = GetIt.instance;
+
+Future&lt;void&gt; initDI() async {
+  // 1. خدمات وتأثيرات الواجهات والثيمات
+  getIt.registerLazySingleton&lt;ThemeCubit&gt;(() =&gt; ThemeCubit());
+  getIt.registerLazySingleton&lt;InternetConnection&gt;(() =&gt; InternetConnection());
+  getIt.registerLazySingleton&lt;NetworkInfo&gt;(
+    () =&gt; NetworkInfoImpl(getIt&lt;InternetConnection&gt;()),
+  );
+
+  // 2. مصادر البيانات (Data Sources)
+  getIt.registerLazySingleton&lt;RobotRemoteDataSource&gt;(
+    () =&gt; RobotRemoteDataSourceApiImp(),
+  );
+  getIt.registerLazySingleton&lt;RobotLocalDataSource&gt;(
+    () =&gt; RobotLocalDataSourceImp(),
+  );
+
+  // 3. المستودعات (Repositories)
+  getIt.registerFactory&lt;RobotControlRepo&gt;(
+    () =&gt; RobotControlRepoImpl(
+      remoteDataSource: getIt&lt;RobotRemoteDataSource&gt;(),
+      localDataSource: getIt&lt;RobotLocalDataSource&gt;(),
+    ),
+  );
+
+  // 4. كتل إدارة الحالة (Cubits)
+  getIt.registerFactory&lt;RobotControlCubit&gt;(
+    () =&gt; RobotControlCubit(repository: getIt&lt;RobotControlRepo&gt;()),
+  );
+  getIt.registerFactory&lt;PresetsCubit&gt;(
+    () =&gt; PresetsCubit(repository: getIt&lt;RobotControlRepo&gt;()),
+  );
+  getIt.registerFactory&lt;AutoModesCubit&gt;(
+    () =&gt; AutoModesCubit(repository: getIt&lt;RobotControlRepo&gt;()),
+  );
+}
+</code></pre>
+<br/>
+<h3>🛣️ 2.2 Navigation and Security Guard (نظام التوجيه وحارس المسارات)</h3>
+<p>يشتمل التطبيق على حارس أمني للمسارات (<code>RouteGuard</code>) يمنع المستخدم من الانتقال إلى شاشات التحكم اليدوي أو التلقائي في حال عدم الاتصال الفعلي بالروبوت:</p>
+<br/>
+<pre><code class="language-dart">class RouteGuard {
+  static bool canNavigate(BuildContext context, {bool requireConnection = false}) {
+    if (!requireConnection) return true;
+
+    final state = context.read&lt;RobotControlCubit&gt;().state;
+    if (state.connectionStatus != ConnectionStatus.connected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please connect to the robot first'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return false;
+    }
+    return true;
+  }
+}
+</code></pre>
+<br/>
+<h3>🎨 2.3 Theme & Aesthetic Design System (نظام التصميم الفاخر)</h3>
+<p>تم بناء الواجهة بلمسة صناعية حديثة (Modern Industrial Design) باستخدام تدرجات غامقة (Dark Mode) ودمجها مع تقنيات Glassmorphism وعناصر مضيئة متغيرة (Ambient Glowing Blobs).</p>
+<br/>
+<ul>
+<li>  <strong>AppColors (<code>lib/core/style/app_colors.dart</code>)</strong>:</li>
+<li>  <strong>Dark Mode</strong>: ألوان غامقة مريحة للعين <code>0xFF0F1115</code> كخلفية متدرجة، مع تباينات برتقالية برّاقة <code>0xFFFF7300</code> وأخضر زمردي للحالة النشطة <code>0xFF10B981</code>.</li>
+<li>  <strong>Light Mode</strong>: ألوان هادئة وراقية تعتمد على درجات الرمادي الفاتح المائل للأزرق <code>0xFFF1F5F9</code>.</li>
+<li>  <strong>GlassContainer (<code>lib/core/style/glass_container.dart</code>)</strong>: حاوية تعتمد على مرشحات تنعيم بصرية (<code>BackdropFilter</code> مع إزاحة ضبابية <code>ImageFilter.blur(sigmaX: blur, sigmaY: blur)</code>) لإعطاء انطباع زجاجي شفاف شبه ناقل للضوء.</li>
+<li>  <strong>AmbientBlob (<code>lib/presentation/view/home/widgets/ambient_blob.dart</code>)</strong>: تستخدم تأثيرات التدرج الإشعاعي (<code>RadialGradient</code>) لخلق هالات ضوئية ملونة تتحرك في الخلفية لإعطاء حيوية للواجهات.</li>
+</ul>
+<br/>
+<hr/>
+<br/>
+<h2>💾 3. Data & Domain Modeling (نمذجة البيانات والمجال)</h2>
+<br/>
+<p>تم تصميم نماذج البيانات لتعكس الحالة الفيزيائية للروبوت بدقة بالغة.</p>
+<br/>
+<h3>📐 3.1 هيكل بيانات الذراع الروبوتية (Robot Arm State Hierarchy)</h3>
+<br/>
+<pre><code class="language-">RobotArmModel (الحالة الكلية للروبوت)
+ ├── servos (قائمة محركات السيرفو الخمسة)
+ │    ├── ID 1: Base (قاعدة الذراع)
+ │    ├── ID 2: Shoulder (الكتف)
+ │    ├── ID 3: Elbow (المرفق)
+ │    ├── ID 4: Wrist (المعصم)
+ │    └── ID 5: Gripper (المقبض)
+ ├── linearRail (السكة الخطية - سم)
+ ├── baseRotation (دوران المنصة الدائرية - بالدرجات)
+ ├── mode (الوضع الحالي: manual / auto)
+ └── status (حالة الحركة: idle / moving / paused / error)
+</code></pre>
+<br/>
+<h3>📝 3.2 فئات النماذج التقنية (Technical Model Specifications)</h3>
+<br/>
+<h4>1. ServoModel (`lib/modules/robot_control/domain/models/servo_model.dart`)</h4>
+<p>يمثل محرك سيرفو فردي، ويحتوي على الخصائص التالية:</p>
+<ul>
+<li>  <code>id</code> (int): المعرّف الفريد للمحرك.</li>
+<li>  <code>currentAngle</code> (int): الزاوية الحالية للمحرك (0° - 180°).</li>
+<li>  <code>targetAngle</code> (int): الزاوية الهدف التي يتم توجيهه إليها.</li>
+<li>  <code>speed</code> (int): سرعة الحركة المقررة (1 - 100).</li>
+<li>  <code>isMoving</code> (bool): مؤشر يوضح ما إذا كان المحرك يتحرك حالياً.</li>
+</ul>
+<br/>
+<h4>2. LinearRailModel (`lib/modules/robot_control/domain/models/linear_rail_model.dart`)</h4>
+<p>يتحكم في موضع المنصة الروبوتية على السكة الخطية:</p>
+<ul>
+<li>  <code>currentPosition</code> (double): الموضع الحالي (0.0 - 100.0 سم).</li>
+<li>  <code>targetPosition</code> (double): الموضع الهدف.</li>
+<li>  <code>speed</code> (int): سرعة الحركة الخطية.</li>
+</ul>
+<br/>
+<h4>3. BaseRotationModel (`lib/modules/robot_control/domain/models/base_rotation_model.dart`)</h4>
+<p>يتحكم في الدوران الكلي لقاعدة الروبوت (0° - 360°).</p>
+<br/>
+<hr/>
+<br/>
+<h2>🔌 4. Communication Protocol (بروتوكول اتصالات WebSocket الحية)</h2>
+<br/>
+<p>يعتمد التطبيق على اتصال مقبس شبكة لاسلكي (WebSocket Connection) ذو زمن استجابة منخفض جداً (Low Latency).</p>
+<br/>
+<h3>⚡ 4.1 Throttling Mechanism (آلية تقييد تدفق البيانات)</h3>
+<p>لمنع اختناق واجهة المستخدم والتطبيق بسبب تدفق البيانات الهائل القادم من الروبوت (~60 رسالة في الثانية)، تم دمج خوارزمية <strong>Throttling</strong> في معالج البيانات الواردة لتحديد سرعة المعالجة بحد أقصى <strong>30 إطاراً في الثانية (32 مللي ثانية)</strong>:</p>
+<br/>
+<pre><code class="language-dart">DateTime _lastProcessTime = DateTime.now();
+static const int _throttleMs = 32; // ~30 FPS
+
+void _handleIncomingData(dynamic data) {
+  final now = DateTime.now();
+  if (now.difference(_lastProcessTime).inMilliseconds &lt; _throttleMs) {
+    return; // تجاهل الرسالة لتوفير موارد المعالج
+  }
+  _lastProcessTime = now;
+
+  try {
+    final Map&lt;String, dynamic&gt; json = jsonDecode(data);
+    if (json['type'] == 'status') {
+      final robotArm = RobotArmModel.fromJson(json['data'] ?? {});
+      _statusController.add(robotArm);
+    }
+  } catch (e) {
+    // معالجة الأخطاء
+  }
+}
+</code></pre>
+<br/>
+<h3>✉️ 4.2 تنسيقات الأوامر المرسلة (JSON Command Structure)</h3>
+<br/>
+<h4>أ. توجيه محرك سيرفو معين:</h4>
+<pre><code class="language-json">{
+  "type": "servo",
+  "servo_id": 3,
+  "start": 45,
+  "end": 90,
+  "speed": 50
+}
+</code></pre>
+<br/>
+<h4>ب. توجيه السكة الخطية:</h4>
+<pre><code class="language-json">{
+  "type": "linear",
+  "distance": 75.0,
+  "speed": 80
+}
+</code></pre>
+<br/>
+<h4>ج. توجيه دوران القاعدة:</h4>
+<pre><code class="language-json">{
+  "type": "base",
+  "degrees": 180.0,
+  "speed": 60
+}
+</code></pre>
+<br/>
+<h4>د. أوامر الطوارئ والتحكم الفوري:</h4>
+<ul>
+<li>  <strong>إيقاف فوري (Emergency Stop):</strong> <code>{"type": "stop"}</code></li>
+<li>  <strong>إيقاف مؤقت:</strong> <code>{"type": "pause"}</code></li>
+<li>  <strong>استئناف الحركة:</strong> <code>{"type": "resume"}</code></li>
+<li>  <strong>تغيير وضع التشغيل:</strong> <code>{"type": "mode", "mode": "auto"}</code></li>
+</ul>
+<br/>
+<hr/>
+<br/>
+<h2>📐 5. Isometric 3D Simulator Math (رياضيات المحاكي البصري ثلاثي الأبعاد)</h2>
+<br/>
+<p>يحتوي التطبيق على محاكي بصري فخم مصمم برسم ثنائي أبعاد يحاكي الأبعاد الثلاثية (Isometric 3D Projection) باستخدام فئة <code>CustomPainter</code> في فلوتر.</p>
+<br/>
+<h3>📐 5.1 تحويل الإحداثيات (3D Coordinate Conversion)</h3>
+<p>لتحويل نقطة ثلاثية الأبعاد في الفضاء الفيزيائي للروبوت $(X, Y, Z)$ إلى إحداثيات الواجهة ثنائية الأبعاد $(dx, dy)$، نستخدم الصيغ الرياضية لإسقاط الأيزومتريك بزاوية 30 درجة ($\cos(30^\circ) \approx 0.866$, $\sin(30^\circ) = 0.5$):</p>
+<br/>
+<p>$$dx = \text{originX} + (x - y) \times \text{scale} \times \cos(30^\circ)$$</p>
+<br/>
+<p>$$dy = \text{originY} + (x + y) \times \text{scale} \times \sin(30^\circ) - z \times \text{scale}$$</p>
+<br/>
+<p>تم تطبيق هذه الصيغة برمجياً في الكود كالتالي:</p>
+<pre><code class="language-dart">Offset _p(double x, double y, double z) {
+  const double cos30 = 0.866025;
+  const double sin30 = 0.5;
+  return Offset(
+    _ox + (x - y) * _sc * cos30,
+    _oy + (x + y) * _sc * sin30 - z * _sc,
+  );
+}
+</code></pre>
+<p><em>حيث <code><em>ox</code> و <code></em>oy</code> يمثلان نقطة الأصل وسط الشاشة، و <code>_sc</code> يمثل مقياس الرسم التقريبي للمحاكاة.</em></p>
+<br/>
+<h3>🦴 5.2 حساب زوايا مفاصل الذراع الروبوتية (Kinematics Forward Kinematics Model)</h3>
+<p>تعتمد زوايا المفاصل المرسومة على زوايا محركات السيرفو الحقيقية المستقبلة من الروبوت. يتم حساب إحداثيات المفاصل المتعاقبة (الكتف J1، المرفق J2، المعصم J3، والمقبض J4) بالتتابع باستخدام حساب المثلثات التراكمي:</p>
+<br/>
+<pre><code class="language-dart">// تحويل الزوايا من الدرجات إلى الراديان
+final theta0 = (90.0 - shoulderDeg) * math.pi / 180.0;
+final theta1 = theta0 + (elbowDeg - 90.0) * math.pi / 180.0;
+final theta2 = theta1 + (wristDeg - 45.0) * math.pi / 180.0;
+
+// أطوال أجزاء الذراع (الروابط الفيزيائية)
+const double baseTopZ = 2.1;
+const double lowerLen = 3.6;
+const double upperLen = 2.9;
+const double wristLen = 1.9;
+
+// إحداثيات المفصل الأول (القاعدة فوق السكة)
+final j0 = [railX, 0.0, baseTopZ];
+
+// حساب موضع الكتف (J1)
+final j1 = [
+  j0[0] + lowerLen * math.sin(theta0) * armDirX,
+  j0[1] + lowerLen * math.sin(theta0) * armDirY,
+  j0[2] + lowerLen * math.cos(theta0),
+];
+
+// حساب موضع المرفق (J2)
+final j2 = [
+  j1[0] + upperLen * math.sin(theta1) * armDirX,
+  j1[1] + upperLen * math.sin(theta1) * armDirY,
+  j1[2] + upperLen * math.cos(theta1),
+];
+
+// حساب موضع المعصم والمقبض (J3)
+final j3 = [
+  j2[0] + wristLen * math.sin(theta2) * armDirX,
+  j2[1] + wristLen * math.sin(theta2) * armDirY,
+  j2[2] + wristLen * math.cos(theta2),
+];
+</code></pre>
+<br/>
+<hr/>
+<br/>
+<h2>🚦 6. State Machine & Safety Interlocks (آلة الحالات والأنظمة الأمنية)</h2>
+<br/>
+<p>يتضمن نظام التحكم آليات أمنية لمنع إرسال الأوامر المتعارضة أو التسبب في تصادمات هيكلية للروبوت.</p>
+<br/>
+<h3>🔒 6.1 حظر التحكم اليدوي أثناء الوضع التلقائي (Auto-Mode Lockdown)</h3>
+<p>عند تشغيل أحد الأنماط التلقائية (Mode 1 أو Mode 2)، يقفل التطبيق شاشة التحكم اليدوي بالكامل لضمان عدم حدوث تشويش على الإشارات المرسلة للروبوت.</p>
+<br/>
+<div class="mermaid-box"><div class="mermaid-title">📊 Diagram Architecture Flow</div>stateDiagram-v2
+    [*] --&gt; Disconnected
+    Disconnected --&gt; Connecting : Connect(url)
+    Connecting --&gt; Connected : Handshake OK
+    Connecting --&gt; Disconnected : Fail / Timeout
+    
+    state Connected {
+        [*] --&gt; ManualMode
+        ManualMode --&gt; AutoModeRunning : StartMode(Mode1/Mode2)
+        
+        state AutoModeRunning {
+            [*] --&gt; Moving
+            Moving --&gt; Paused : PauseMode()
+            Paused --&gt; Moving : ResumeMode()
+            Moving --&gt; LockedUI : Block User Input
+        }
+        
+        AutoModeRunning --&gt; ManualMode : StopMode() / SetMode('manual')
+    }
+    Connected --&gt; Disconnected : Disconnect()
+</div><br/>
+<h3>📋 6.2 نظام تشغيل وتخزين التعليمات البرمجية المسبقة (Presets Execution Workflow)</h3>
+<p>يتيح التطبيق للمستخدم صياغة سلسلة من الخطوات وتخزينها محلياً:</p>
+<p>1.  كل خطوة تتكون من: (نوع الحركة، المعايير المخصصة مثل الزوايا أو المسافة، وزمن التأخير بالمللي ثانية <code>delayMs</code>).</p>
+<p>2.  عند التشغيل، يقوم التطبيق بقراءة قائمة الأوامر وإرسالها بالترتيب وبفواصل زمنية مطابقة لـ <code>delayMs</code> باستخدام مولد فترات تأخير غير متزامن (<code>Future.delayed</code>).</p>
+<br/>
+<hr/>
+<br/>
+<h2>🌟 7. UI Premium Components & Micro-Animations</h2>
+<br/>
+<p>لضمان تجربة مستخدم رائدة تليق بالتطبيقات الصناعية الحديثة، تم بناء العناصر التفاعلية التالية:</p>
+<br/>
+<p>1.  <strong>محاكي الذراع البصري التفاعلي</strong>: لا يعرض زوايا ثابتة بل يرسم مسار دوران متحرك حول المفاصل يعكس السرعة الحقيقية لحركة الذراع.</p>
+<p>2.  <strong>مؤشر الاتصال النابض (Pulsing Glow Connection Indicator)</strong>: يضيء باللون الأخضر أو الأحمر النابض بالتناغم مع حالة الاتصال بالشبكة أو البلوتوث.</p>
+<p>3.  <strong>عناصر التحكم اللمسية الذكية</strong>: عند اختيار كارت تحكم معين (مثلاً السكة أو أحد محركات السيرفو)، يتم إبراز ذلك المكون بعينه في المحاكي البصري ليعرف المستخدم تحديداً أي جزء من الروبوت سيتحرك.</p>
+<br/>
+<hr/>
+<br/>
+<h3>📝 ملخص ملفات التطبيق البرمجية وارتباطاتها (File Dependency Map)</h3>
+<br/>
+<ul>
+<li>  <code>main.dart</code>: نقطة انطلاق التطبيق ومسؤول تهيئة التهيئة المسبقة للغات وحفظ حالة الثيم.</li>
+<li>  <code>lib/presentation/view/root/app.dart</code>: الحاوية الأساسية للتطبيق وتهيئة التوجيه (Routing).</li>
+<li>  <code>lib/presentation/view/root/cubit/robot<em>control</em>cubit.dart</code>: القلب النابض لإدارة اتصالات الروبوت وبث بيانات الحركة الفورية.</li>
+<li>  <code>lib/presentation/view/home/home_screen.dart</code>: الشاشة الرئيسية التي تعرض المحاكي وأزرار التحكم السريع بالطوارئ.</li>
+<li>  <code>lib/presentation/view/manual/manual<em>control</em>screen.dart</code>: شاشة التحكم اليدوي التفصيلي بجميع مفاصل الروبوت.</li>
+<li>  <code>lib/presentation/view/auto/auto<em>mode</em>screen.dart</code>: شاشة تشغيل الأنماط التلقائية وإدارة الخطوات المخزنة.</li>
+</ul>
+</body>
+</html>

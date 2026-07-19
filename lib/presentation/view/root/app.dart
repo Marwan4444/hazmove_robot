@@ -6,6 +6,8 @@ import 'package:hazmove_robot/core/di/main_di.dart';
 import 'package:hazmove_robot/core/routing/app_router.dart';
 import 'package:hazmove_robot/core/style/theme_cubit.dart';
 
+import 'package:hazmove_robot/presentation/view/auto/cubit/auto_modes_cubit.dart';
+import 'package:hazmove_robot/presentation/view/auto/cubit/presets_cubit.dart';
 import 'cubit/robot_control_cubit.dart';
 
 class MyApp extends StatelessWidget {
@@ -20,6 +22,12 @@ class MyApp extends StatelessWidget {
         ),
         BlocProvider<RobotControlCubit>(
           create: (context) => getIt<RobotControlCubit>()..loadStatus(),
+        ),
+        BlocProvider<AutoModesCubit>(
+          create: (context) => getIt<AutoModesCubit>(),
+        ),
+        BlocProvider<PresetsCubit>(
+          create: (context) => getIt<PresetsCubit>()..loadPresets(),
         ),
       ],
       child: ScreenUtilInit(

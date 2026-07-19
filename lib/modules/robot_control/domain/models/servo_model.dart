@@ -44,15 +44,21 @@ class ServoModel extends Equatable {
   }
 
   factory ServoModel.fromJson(Map<String, dynamic> json) {
+    final int minAngle = json['minAngle'] ?? 0;
+    final int maxAngle = json['maxAngle'] ?? 180;
+    // Clamp angles so out-of-range sentinel values (e.g. -1 from ESP32)
+    // never violate the Slider assertion: value >= min && value <= max.
+    int _clamp(int? raw, int fallback) =>
+        (raw ?? fallback).clamp(minAngle, maxAngle).toInt();
     return ServoModel(
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
-      currentAngle: json['currentAngle'] ?? 0,
-      targetAngle: json['targetAngle'] ?? 0,
+      currentAngle: _clamp(json['currentAngle'] as int?, 0),
+      targetAngle: _clamp(json['targetAngle'] as int?, 0),
       speed: json['speed'] ?? 50,
       isMoving: json['isMoving'] ?? false,
-      minAngle: json['minAngle'] ?? 0,
-      maxAngle: json['maxAngle'] ?? 180,
+      minAngle: minAngle,
+      maxAngle: maxAngle,
     );
   }
 
