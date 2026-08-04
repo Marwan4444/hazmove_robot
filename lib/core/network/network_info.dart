@@ -1,8 +1,5 @@
-
 import 'package:fpdart/fpdart.dart';
 import 'package:hazmove_robot/core/error/failure.dart';
-import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
-
 
 abstract class NetworkInfo {
   Future<bool> get isConnected;
@@ -10,7 +7,7 @@ abstract class NetworkInfo {
 }
 
 class NetworkInfoImpl implements NetworkInfo {
-  NetworkInfoImpl(InternetConnection internetConnection);
+  NetworkInfoImpl();
 
   @override
   Future<bool> get isConnected async {

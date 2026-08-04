@@ -8,8 +8,6 @@ import '../../modules/robot_control/data/providers/robot_control_repo_impl.dart'
 import '../../presentation/view/root/cubit/robot_control_cubit.dart';
 import '../../presentation/view/auto/cubit/presets_cubit.dart';
 import '../../presentation/view/auto/cubit/auto_modes_cubit.dart';
-import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
-import '../network/network_info.dart';
 import '../style/theme_cubit.dart';
 
 final getIt = GetIt.instance;
@@ -17,11 +15,6 @@ final getIt = GetIt.instance;
 Future<void> initDI() async {
   // Services & Cubits (Theme)
   getIt.registerLazySingleton<ThemeCubit>(() => ThemeCubit());
-
-  getIt.registerLazySingleton<InternetConnection>(() => InternetConnection());
-  getIt.registerLazySingleton<NetworkInfo>(
-    () => NetworkInfoImpl(getIt<InternetConnection>()),
-  );
 
   // Data Sources
   getIt.registerLazySingleton<RobotRemoteDataSource>(
@@ -31,24 +24,24 @@ Future<void> initDI() async {
     () => RobotLocalDataSourceImp(),
   );
 
-  // Repositories
-  getIt.registerFactory<RobotControlRepo>(
+  // Repository (Singleton — shared across all Cubits)
+  getIt.registerLazySingleton<RobotControlRepo>(
     () => RobotControlRepoImpl(
       remoteDataSource: getIt<RobotRemoteDataSource>(),
       localDataSource: getIt<RobotLocalDataSource>(),
     ),
   );
 
-  // Cubits
-  getIt.registerFactory<RobotControlCubit>(
+  // Cubits (Singletons — one instance per app lifecycle)
+  getIt.registerLazySingleton<RobotControlCubit>(
     () => RobotControlCubit(repository: getIt<RobotControlRepo>()),
   );
-  
-  getIt.registerFactory<PresetsCubit>(
+
+  getIt.registerLazySingleton<PresetsCubit>(
     () => PresetsCubit(repository: getIt<RobotControlRepo>()),
   );
 
-  getIt.registerFactory<AutoModesCubit>(
+  getIt.registerLazySingleton<AutoModesCubit>(
     () => AutoModesCubit(repository: getIt<RobotControlRepo>()),
   );
 }

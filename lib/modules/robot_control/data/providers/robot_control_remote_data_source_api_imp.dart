@@ -13,6 +13,15 @@ class RobotRemoteDataSourceApiImp implements RobotRemoteDataSource {
   final StreamController<RobotArmModel> _statusController = 
       StreamController<RobotArmModel>.broadcast();
 
+  // ─── Auto-Reconnect fields ──────────────────────────────────
+  String? _lastUrl;
+  bool _intentionalDisconnect = false;
+  Timer? _reconnectTimer;
+  int _reconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 10;
+  static const Duration _baseReconnectDelay = Duration(seconds: 2);
+  // ──────────────────────────────────────────────────────────────
+
   RobotRemoteDataSourceApiImp() {
     // Initial status emitter state
     _connectionController.add(false);
@@ -29,7 +38,23 @@ class RobotRemoteDataSourceApiImp implements RobotRemoteDataSource {
 
   @override
   Future<void> connect(String url) async {
+    _intentionalDisconnect = false;
+    _reconnectAttempts = 0;
+    _reconnectTimer?.cancel();
+    _lastUrl = url;
+    await _establishConnection(url);
+  }
+
+  /// Internal method to establish the WebSocket connection.
+  /// Used by both [connect] and the auto-reconnect logic.
+  Future<void> _establishConnection(String url) async {
     try {
+      // Close any existing channel before reconnecting
+      try {
+        await _channel?.sink.close();
+      } catch (_) {}
+      _channel = null;
+
       _channel = WebSocketChannel.connect(Uri.parse(url));
       
       _channel?.stream.listen(
@@ -37,25 +62,64 @@ class RobotRemoteDataSourceApiImp implements RobotRemoteDataSource {
           _handleIncomingData(data);
         },
         onError: (error) {
-          _connectionController.addError(Exception('WebSocket Connection Error: $error'));
+          dev.log('[WS] Connection error: $error', name: 'WebSocket');
           _connectionController.add(false);
+          _scheduleReconnect();
         },
         onDone: () {
+          dev.log('[WS] Connection closed', name: 'WebSocket');
           _connectionController.add(false);
+          _scheduleReconnect();
         },
       );
 
       // Brief delay to allow WS negotiation
       await Future.delayed(const Duration(milliseconds: 500));
       _connectionController.add(true);
+      _reconnectAttempts = 0; // Reset counter on success
+      dev.log('[WS] Connected successfully to $url', name: 'WebSocket');
     } catch (e) {
+      dev.log('[WS] Connection failed: $e', name: 'WebSocket');
       _connectionController.add(false);
-      throw Exception('Failed to connect: $e');
+      _scheduleReconnect();
     }
+  }
+
+  /// Schedules an auto-reconnect attempt with exponential backoff.
+  /// Will NOT reconnect if the user disconnected intentionally.
+  void _scheduleReconnect() {
+    if (_intentionalDisconnect || _lastUrl == null) return;
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      dev.log(
+        '[WS] Max reconnect attempts reached ($_maxReconnectAttempts). Giving up.',
+        name: 'WebSocket',
+      );
+      return;
+    }
+
+    _reconnectTimer?.cancel();
+    // Exponential backoff: 2s, 4s, 8s, 16s, 32s... capped at ~17 min
+    final delay = _baseReconnectDelay * (1 << _reconnectAttempts);
+    _reconnectAttempts++;
+
+    dev.log(
+      '[WS] Reconnecting in ${delay.inSeconds}s '
+      '(attempt $_reconnectAttempts/$_maxReconnectAttempts)',
+      name: 'WebSocket',
+    );
+
+    _reconnectTimer = Timer(delay, () async {
+      if (!_intentionalDisconnect && _lastUrl != null) {
+        await _establishConnection(_lastUrl!);
+      }
+    });
   }
 
   @override
   Future<void> disconnect() async {
+    _intentionalDisconnect = true;
+    _reconnectTimer?.cancel();
+    _reconnectAttempts = 0;
     try {
       await _channel?.sink.close();
       _channel = null;
@@ -105,6 +169,7 @@ class RobotRemoteDataSourceApiImp implements RobotRemoteDataSource {
   }
 
   void dispose() {
+    _reconnectTimer?.cancel();
     _connectionController.close();
     _statusController.close();
     _channel?.sink.close();

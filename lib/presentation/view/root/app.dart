@@ -20,14 +20,14 @@ class MyApp extends StatelessWidget {
         BlocProvider<ThemeCubit>(
           create: (context) => getIt<ThemeCubit>(),
         ),
-        BlocProvider<RobotControlCubit>(
-          create: (context) => getIt<RobotControlCubit>()..loadStatus(),
+        BlocProvider<RobotControlCubit>.value(
+          value: getIt<RobotControlCubit>()..loadStatus(),
         ),
-        BlocProvider<AutoModesCubit>(
-          create: (context) => getIt<AutoModesCubit>(),
+        BlocProvider<AutoModesCubit>.value(
+          value: getIt<AutoModesCubit>(),
         ),
-        BlocProvider<PresetsCubit>(
-          create: (context) => getIt<PresetsCubit>()..loadPresets(),
+        BlocProvider<PresetsCubit>.value(
+          value: getIt<PresetsCubit>()..loadPresets(),
         ),
       ],
       child: ScreenUtilInit(
