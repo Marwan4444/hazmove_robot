@@ -1,4 +1,4 @@
-import '../domain/models/robot_arm_model.dart';
+import 'models/robot_arm_model.dart';
 
 abstract class RobotRemoteDataSource {
   Stream<bool> get connectionStatus;

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import '../../../../modules/robot_control/domain/models/robot_arm_model.dart';
+import '../../../../modules/robot_control/domain/entities/robot_arm_entity.dart';
 import '../../../../core/extensions/theme_extensions.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Widget: Isometric 3D Robot Arm Simulator
 // ─────────────────────────────────────────────────────────────────────────────
 class RobotArmVisualization extends StatelessWidget {
-  final RobotArmModel? robotArm;
+  final RobotArmEntity? robotArm;
   final bool isConnected;
 
   const RobotArmVisualization({
@@ -89,7 +89,7 @@ class RobotArmVisualization extends StatelessWidget {
 // Status Bar Widget
 // ─────────────────────────────────────────────────────────────────────────────
 class _SimStatusBar extends StatelessWidget {
-  final RobotArmModel? robotArm;
+  final RobotArmEntity? robotArm;
   final bool isConnected;
 
   const _SimStatusBar({required this.robotArm, required this.isConnected});
@@ -231,7 +231,7 @@ class _GlowDot extends StatelessWidget {
 // Ruler Widget
 // ─────────────────────────────────────────────────────────────────────────────
 class _RulerWidget extends StatelessWidget {
-  final RobotArmModel? robotArm;
+  final RobotArmEntity? robotArm;
   final bool isDarkMode;
   final Color accentColor;
 
@@ -279,7 +279,7 @@ class _RulerWidget extends StatelessWidget {
 // CustomPainter: Isometric 3D Robot
 // ─────────────────────────────────────────────────────────────────────────────
 class IsometricRobotPainter extends CustomPainter {
-  final RobotArmModel? robotArm;
+  final RobotArmEntity? robotArm;
   final bool isDarkMode;
   final Color accentColor;
 

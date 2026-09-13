@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:developer' as dev;
 import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import '../../domain/models/robot_arm_model.dart';
+import '../models/robot_arm_model.dart';
 
 import '../robot_control_remote_data_source.dart';
 

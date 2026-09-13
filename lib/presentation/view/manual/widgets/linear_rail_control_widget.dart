@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/extensions/theme_extensions.dart';
 import '../../../../core/style/glass_container.dart';
-import '../../../../modules/robot_control/domain/models/linear_rail_model.dart';
+import '../../../../modules/robot_control/domain/entities/linear_rail_entity.dart';
 
 class LinearRailControlWidget extends StatefulWidget {
-  final LinearRailModel? linearRail;
+  final LinearRailEntity? linearRail;
   /// Called when a direction button is pressed (and debounced) — sends target to ESP32.
   final Function(double position) onPositionCommitted;
 
@@ -52,7 +52,7 @@ class _LinearRailControlWidgetState extends State<LinearRailControlWidget> {
     super.dispose();
   }
 
-  void _onStepPressed(bool increment, LinearRailModel rail) {
+  void _onStepPressed(bool increment, LinearRailEntity rail) {
     if (widget.linearRail == null) return;
 
     final targetVal = _virtualPosition ?? rail.currentPosition;

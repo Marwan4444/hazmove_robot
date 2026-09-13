@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:hazmove_robot/core/extensions/theme_extensions.dart';
-import '../../../../modules/robot_control/domain/models/movement_preset_model.dart';
+import '../../../../modules/robot_control/domain/entities/movement_preset_entity.dart';
 import '../../../../core/style/glass_container.dart';
 import 'preset_card_header.dart';
 import 'preset_card_info.dart';
 import 'preset_card_actions.dart';
 
 class PresetCardWidget extends StatelessWidget {
-  final MovementPresetModel preset;
+  final MovementPresetEntity preset;
   final VoidCallback onExecute;
 
   const PresetCardWidget({

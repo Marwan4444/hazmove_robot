@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../core/extensions/theme_extensions.dart';
 import '../../../../core/style/glass_container.dart';
-import '../../../../modules/robot_control/domain/models/robot_arm_model.dart';
+import '../../../../modules/robot_control/domain/entities/robot_arm_entity.dart';
 
 class LiveValuesDashboard extends StatelessWidget {
-  final RobotArmModel? robotArm;
+  final RobotArmEntity? robotArm;
   final String selectedId;
   final ValueChanged<String> onSelected;
 

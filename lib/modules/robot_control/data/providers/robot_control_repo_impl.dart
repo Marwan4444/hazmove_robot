@@ -2,14 +2,18 @@ import 'dart:async';
 import 'package:fpdart/fpdart.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/error/failure.dart';
-import '../../domain/models/robot_arm_model.dart';
-import '../../domain/models/movement_preset_model.dart';
-import '../../domain/models/servo_model.dart';
-import '../../domain/models/linear_rail_model.dart';
-import '../../domain/models/base_rotation_model.dart';
+import '../../domain/entities/robot_arm_entity.dart';
+import '../../domain/entities/movement_preset_entity.dart';
 import '../../domain/repo/robot_control_repo.dart';
 import '../robot_control_remote_data_source.dart';
 import '../robot_control_local_data_source.dart';
+import '../models/robot_arm_model.dart';
+import '../models/movement_preset_model.dart';
+import '../models/servo_model.dart';
+import '../models/linear_rail_model.dart';
+import '../models/base_rotation_model.dart';
+import '../mappers/preset_mapper.dart';
+import '../mappers/robot_arm_mapper.dart';
 
 class RobotControlRepoImpl implements RobotControlRepo {
   final RobotRemoteDataSource remoteDataSource;
@@ -30,9 +34,9 @@ class RobotControlRepoImpl implements RobotControlRepo {
       ).asBroadcastStream();
 
   @override
-  Stream<Either<Failure, RobotArmModel>> get robotStatus =>
+  Stream<Either<Failure, RobotArmEntity>> get robotStatus =>
       remoteDataSource.robotStatus.transform(
-        StreamTransformer<RobotArmModel, Either<Failure, RobotArmModel>>.fromHandlers(
+        StreamTransformer<RobotArmModel, Either<Failure, RobotArmEntity>>.fromHandlers(
           handleData: (data, sink) => sink.add(Right(data)),
           handleError: (error, stackTrace, sink) => sink.add(Left(Failure.fromException(error))),
         )
@@ -60,7 +64,7 @@ class RobotControlRepoImpl implements RobotControlRepo {
   }
 
   @override
-  Future<Either<Failure, RobotArmModel>> getCurrentStatus() async {
+  Future<Either<Failure, RobotArmEntity>> getCurrentStatus() async {
     try {
       // Return a default baseline state when requested, status is live updated via streams
       final robotArm = RobotArmModel(
@@ -186,9 +190,12 @@ class RobotControlRepoImpl implements RobotControlRepo {
     }
   }
 
+  bool _isPresetCancelled = false;
+
   @override
   Future<Either<Failure, void>> stopAllMovements() async {
     try {
+      _isPresetCancelled = true;
       final command = {'type': RobotCommands.stop};
       await remoteDataSource.sendCommand(command);
       return const Right(null);
@@ -220,7 +227,7 @@ class RobotControlRepoImpl implements RobotControlRepo {
   }
 
   @override
-  Future<Either<Failure, List<MovementPresetModel>>> getPresets() async {
+  Future<Either<Failure, List<MovementPresetEntity>>> getPresets() async {
     try {
       final presets = await localDataSource.getPresets();
       return Right(presets);
@@ -230,10 +237,11 @@ class RobotControlRepoImpl implements RobotControlRepo {
   }
 
   @override
-  Future<Either<Failure, void>> savePreset(MovementPresetModel preset) async {
+  Future<Either<Failure, void>> savePreset(MovementPresetEntity preset) async {
     try {
       final presets = await localDataSource.getPresets();
-      final updatedPresets = [...presets.where((p) => p.id != preset.id), preset];
+      final presetModel = preset.toModel();
+      final updatedPresets = [...presets.where((p) => p.id != preset.id), presetModel];
       await localDataSource.savePresets(updatedPresets);
       return const Right(null);
     } catch (e) {
@@ -256,10 +264,13 @@ class RobotControlRepoImpl implements RobotControlRepo {
   @override
   Future<Either<Failure, void>> executePreset(String presetId) async {
     try {
+      _isPresetCancelled = false;
       final presets = await localDataSource.getPresets();
       final preset = presets.firstWhere((p) => p.id == presetId);
       
       for (final step in preset.steps) {
+        if (_isPresetCancelled) break;
+
         final command = {
           'type': step.type,
           ...step.parameters,
@@ -267,8 +278,13 @@ class RobotControlRepoImpl implements RobotControlRepo {
         await remoteDataSource.sendCommand(command);
         
         if (step.delayMs > 0) {
-          await Future.delayed(Duration(milliseconds: step.delayMs));
+          final intervals = (step.delayMs / 100).ceil();
+          for (int i = 0; i < intervals; i++) {
+            if (_isPresetCancelled) break;
+            await Future.delayed(const Duration(milliseconds: 100));
+          }
         }
+        if (_isPresetCancelled) break;
       }
       return const Right(null);
     } catch (e) {

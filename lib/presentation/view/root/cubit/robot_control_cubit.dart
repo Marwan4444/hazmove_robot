@@ -2,17 +2,17 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/error/failure.dart';
-import '../../../../modules/robot_control/domain/models/robot_arm_model.dart';
-import '../../../../modules/robot_control/domain/models/servo_model.dart';
-import '../../../../modules/robot_control/domain/models/linear_rail_model.dart';
-import '../../../../modules/robot_control/domain/models/base_rotation_model.dart';
+import '../../../../modules/robot_control/domain/entities/robot_arm_entity.dart';
+import '../../../../modules/robot_control/domain/entities/servo_entity.dart';
+import '../../../../modules/robot_control/domain/entities/linear_rail_entity.dart';
+import '../../../../modules/robot_control/domain/entities/base_rotation_entity.dart';
 import '../../../../modules/robot_control/domain/repo/robot_control_repo.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected }
 
 class RobotControlState extends Equatable {
   final ConnectionStatus connectionStatus;
-  final RobotArmModel? robotArm;
+  final RobotArmEntity? robotArm;
   final bool isLoading;
   final bool isPaused;
   final Failure? failure;
@@ -27,7 +27,7 @@ class RobotControlState extends Equatable {
 
   RobotControlState copyWith({
     ConnectionStatus? connectionStatus,
-    RobotArmModel? robotArm,
+    RobotArmEntity? robotArm,
     bool? isLoading,
     bool? isPaused,
     Failure? failure,
@@ -65,22 +65,22 @@ class RobotControlCubit extends Cubit<RobotControlState> {
   Timer? _linearRailTimeout;
   // ────────────────────────────────────────────────────────────────────────
 
-  static RobotArmModel get defaultRobotArm => RobotArmModel(
+  static RobotArmEntity get defaultRobotArm => RobotArmEntity(
         servos: const [
           // Angles match ESP32's InitialPosition() mapped back to 0-180 Flutter range
-          ServoModel(id: 1, name: 'Base Servo',     currentAngle: 0,   targetAngle: 0,   speed: 50, isMoving: false), // HandFB   → 0°
-          ServoModel(id: 2, name: 'Shoulder Servo', currentAngle: 90,  targetAngle: 90,  speed: 50, isMoving: false), // MoveArm  → 50/100 → 90° (mapped)
-          ServoModel(id: 3, name: 'Elbow Servo',    currentAngle: 180, targetAngle: 180, speed: 50, isMoving: false), // HandUD   → 180°
-          ServoModel(id: 4, name: 'Wrist Servo',    currentAngle: 150, targetAngle: 150, speed: 50, isMoving: false), // HandR    → 150°
-          ServoModel(id: 5, name: 'Gripper Servo',  currentAngle: 180, targetAngle: 180, speed: 50, isMoving: false), // HandOC   → 180°
+          ServoEntity(id: 1, name: 'Base Servo',     currentAngle: 0,   targetAngle: 0,   speed: 50, isMoving: false), // HandFB   → 0°
+          ServoEntity(id: 2, name: 'Shoulder Servo', currentAngle: 90,  targetAngle: 90,  speed: 50, isMoving: false), // MoveArm  → 50/100 → 90° (mapped)
+          ServoEntity(id: 3, name: 'Elbow Servo',    currentAngle: 180, targetAngle: 180, speed: 50, isMoving: false), // HandUD   → 180°
+          ServoEntity(id: 4, name: 'Wrist Servo',    currentAngle: 150, targetAngle: 150, speed: 50, isMoving: false), // HandR    → 150°
+          ServoEntity(id: 5, name: 'Gripper Servo',  currentAngle: 180, targetAngle: 180, speed: 50, isMoving: false), // HandOC   → 180°
         ],
-        linearRail: const LinearRailModel(
+        linearRail: const LinearRailEntity(
           currentPosition: 0.0,  // ESP32: currentLinearCM starts at 0
           targetPosition: 0.0,
           speed: 50,
           isMoving: false,
         ),
-        baseRotation: const BaseRotationModel(
+        baseRotation: const BaseRotationEntity(
           currentDegrees: 0.0,   // ESP32: currentBaseDegrees starts at 0
           targetDegrees: 0.0,
           speed: 50,
@@ -189,7 +189,7 @@ class RobotControlCubit extends Cubit<RobotControlState> {
     // ❌ Guard: ignore command if this servo is already moving
     final servo = state.robotArm?.servos.firstWhere(
       (s) => s.id == servoId,
-      orElse: () => const ServoModel(
+      orElse: () => const ServoEntity(
         id: -1, name: '', currentAngle: 0,
         targetAngle: 0, speed: 0, isMoving: false,
       ),

@@ -1,15 +1,15 @@
 import 'package:fpdart/fpdart.dart';
 import '../../../../core/error/failure.dart';
-import '../models/robot_arm_model.dart';
-import '../models/movement_preset_model.dart';
+import '../entities/robot_arm_entity.dart';
+import '../entities/movement_preset_entity.dart';
 
 abstract class RobotControlRepo {
   Stream<Either<Failure, bool>> get connectionStatus;
-  Stream<Either<Failure, RobotArmModel>> get robotStatus;
+  Stream<Either<Failure, RobotArmEntity>> get robotStatus;
   
   Future<Either<Failure, void>> connect(String url);
   Future<Either<Failure, void>> disconnect();
-  Future<Either<Failure, RobotArmModel>> getCurrentStatus();
+  Future<Either<Failure, RobotArmEntity>> getCurrentStatus();
   
   // Controls
   Future<Either<Failure, void>> moveServo(int servoId, int startAngle, int endAngle, int speed);
@@ -20,8 +20,8 @@ abstract class RobotControlRepo {
   Future<Either<Failure, void>> setBaseRotation(double degrees, int speed);
   
   // Preset operations
-  Future<Either<Failure, List<MovementPresetModel>>> getPresets();
-  Future<Either<Failure, void>> savePreset(MovementPresetModel preset);
+  Future<Either<Failure, List<MovementPresetEntity>>> getPresets();
+  Future<Either<Failure, void>> savePreset(MovementPresetEntity preset);
   Future<Either<Failure, void>> deletePreset(String presetId);
   Future<Either<Failure, void>> executePreset(String presetId);
   

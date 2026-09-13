@@ -1,11 +1,11 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/error/failure.dart';
-import '../../../../modules/robot_control/domain/models/movement_preset_model.dart';
+import '../../../../modules/robot_control/domain/entities/movement_preset_entity.dart';
 import '../../../../modules/robot_control/domain/repo/robot_control_repo.dart';
 
 class PresetsState extends Equatable {
-  final List<MovementPresetModel> presets;
+  final List<MovementPresetEntity> presets;
   final bool isLoading;
   final Failure? failure;
 
@@ -16,7 +16,7 @@ class PresetsState extends Equatable {
   });
 
   PresetsState copyWith({
-    List<MovementPresetModel>? presets,
+    List<MovementPresetEntity>? presets,
     bool? isLoading,
     Failure? failure,
     bool clearFailure = false,
@@ -65,7 +65,7 @@ class PresetsCubit extends Cubit<PresetsState> {
     );
   }
 
-  Future<void> savePreset(MovementPresetModel preset) async {
+  Future<void> savePreset(MovementPresetEntity preset) async {
     emit(state.copyWith(isLoading: true, clearFailure: true));
     final result = await _repository.savePreset(preset);
     result.fold(
@@ -115,7 +115,7 @@ class PresetsCubit extends Cubit<PresetsState> {
     );
   }
 
-  List<MovementPresetModel> _getSamplePresets() {
+  List<MovementPresetEntity> _getSamplePresets() {
     return const [];
   }
 }

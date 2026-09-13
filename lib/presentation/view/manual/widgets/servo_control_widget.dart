@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../core/extensions/theme_extensions.dart';
 import '../../../../core/style/glass_container.dart';
-import '../../../../modules/robot_control/domain/models/servo_model.dart';
+import '../../../../modules/robot_control/domain/entities/servo_entity.dart';
 
 class ServoControlWidget extends StatelessWidget {
-  final ServoModel servo;
+  final ServoEntity servo;
   /// Called on every drag tick — update UI only, don't send to ESP32.
   final Function(int angle, int speed) onAngleChanged;
   /// Called once when the user releases the slider — send to ESP32.

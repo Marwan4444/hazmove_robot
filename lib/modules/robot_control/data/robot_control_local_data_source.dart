@@ -1,4 +1,4 @@
-import '../domain/models/movement_preset_model.dart';
+import 'models/movement_preset_model.dart';
 
 abstract class RobotLocalDataSource {
   Future<List<MovementPresetModel>> getPresets();

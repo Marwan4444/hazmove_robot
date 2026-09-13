@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../../core/extensions/theme_extensions.dart';
 import '../../../../core/style/glass_container.dart';
-import '../../../../modules/robot_control/domain/models/base_rotation_model.dart';
+import '../../../../modules/robot_control/domain/entities/base_rotation_entity.dart';
 
 class BaseRotationControlWidget extends StatelessWidget {
-  final BaseRotationModel? baseRotation;
-  /// Called on every drag tick — update UI only, don't send to ESP32.
+  final BaseRotationEntity? baseRotation;
+  /// Called on every drag drag tick — update UI only, don't send to ESP32.
   final Function(double degrees, int speed) onRotationChanged;
   /// Called once when the user releases the slider — send to ESP32.
   final Function(double degrees, int speed) onRotationCommitted;

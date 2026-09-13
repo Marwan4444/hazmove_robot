@@ -90,8 +90,29 @@ const int   DEFAULT_BASE_SPEED = 1000;
 const int LINEAR_FAST_DELAY_US = 500;
 const int LINEAR_SLOW_DELAY_US = 5000;
 
+/* ========= SAFETY BOUNDS (حدود الأمان الفيزيائية) ========= */
+const float MIN_LINEAR_CM      = 0.0;
+const float MAX_LINEAR_CM      = 45.0; // أقصى مسافة مسموحة للسكة الخطية (cm)
+const float MIN_BASE_DEGREES   = -180.0;
+const float MAX_BASE_DEGREES   = 180.0;
+const int   MIN_SERVO_ANGLE    = 0;
+const int   MAX_SERVO_ANGLE    = 180;
+const int   MIN_SPEED          = 1;
+const int   MAX_SPEED          = 100;
+
+/* ========= RE-ENTRANCY LOCKS (حماية التداخل أثناء الحركة) ========= */
+bool isServoMoving  = false;
+bool isLinearMoving = false;
+bool isBaseMoving   = false;
+
 /* ========= CONTROL SERVOS BY APP ID ========= */
 void controlServoById(int id, int targetAngle, int speedDelay) {
+  if (isServoMoving || forceStop) return;
+  isServoMoving = true;
+
+  // حماية حدود زاوية السيرفو
+  targetAngle = constrain(targetAngle, MIN_SERVO_ANGLE, MAX_SERVO_ANGLE);
+
   // ID 1: HandFB  (Forward/Backward)
   // ID 2: RobotUD1/RobotUD2 (Shoulder - MoveArm)
   // ID 3: HandUD  (Up/Down)
@@ -121,6 +142,8 @@ void controlServoById(int id, int targetAngle, int speedDelay) {
     int start = HandOC.read();
     MoveServo(HandOC, start, targetAngle, speedDelay);
   }
+
+  isServoMoving = false;
 }
 
 /* ========= WEBSOCKET EVENT CALLBACK ========= */
@@ -153,48 +176,85 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
 
       // ── أمر السيرفو ──────────────────────────────────────────────
       if (strcmp(commandType, "servo") == 0) {
+        if (isServoMoving || runningSequence) {
+          Serial.println("[GUARD] Servo command ignored: already moving or sequence running");
+          return;
+        }
         int id          = doc["servo_id"];
         int targetAngle = doc["end"];
-        int speed       = doc["speed"];
+        int speed       = doc["speed"] | 50;
+        speed           = constrain(speed, MIN_SPEED, MAX_SPEED);
         int speedDelay  = map(speed, 1, 100, 30, 2);
+
+        if (id < 1 || id > 5) {
+          Serial.printf("[GUARD] Invalid servo ID: %d\n", id);
+          return;
+        }
 
         forceStop = false;
         controlServoById(id, targetAngle, speedDelay);
       }
 
-      // ── أمر السكة الخطية (مع speed) ─────────────────────────────
-      // [FIX 2] قراءة واستخدام speed لتحديد سرعة السكة فعلياً
+      // ── أمر السكة الخطية (مع speed وفحص الحدود) ─────────────────────────────
       else if (strcmp(commandType, "linear") == 0) {
+        if (isLinearMoving || runningSequence) {
+          Serial.println("[GUARD] Linear command ignored: already moving or sequence running");
+          return;
+        }
         double targetDistance = doc["distance"];
-        int    speed          = doc["speed"] | 50; // قيمة افتراضية 50 لو مش موجودة
+        int    speed          = doc["speed"] | 50;
+        speed                 = constrain(speed, MIN_SPEED, MAX_SPEED);
+
+        // فحص حدود الأمان الفيزيائية للسكة
+        if (targetDistance < MIN_LINEAR_CM || targetDistance > MAX_LINEAR_CM) {
+          Serial.printf("[GUARD REJECT] Linear distance out of bounds: %.2f (Min: %.1f, Max: %.1f)\n",
+                        targetDistance, MIN_LINEAR_CM, MAX_LINEAR_CM);
+          return;
+        }
 
         // تحويل speed (1-100) إلى تأخير (5000-500 مايكروثانية)
         int stepDelayUs = map(speed, 1, 100, LINEAR_SLOW_DELAY_US, LINEAR_FAST_DELAY_US);
 
         forceStop = false;
         double delta = targetDistance - currentLinearCM;
-        if (delta != 0) {
+        if (abs(delta) > 0.05) {
           char dir = (delta > 0) ? 'R' : 'L';
-          MoveLinearCM(abs(delta), dir, stepDelayUs); // [FIX 2] نمرر السرعة
+          MoveLinearCM(abs(delta), dir, stepDelayUs);
         }
       }
 
-      // ── أمر القاعدة الدوارة ──────────────────────────────────────
+      // ── أمر القاعدة الدوارة (مع فحص الحدود) ──────────────────────────────
       else if (strcmp(commandType, "base") == 0) {
+        if (isBaseMoving || runningSequence) {
+          Serial.println("[GUARD] Base command ignored: already moving or sequence running");
+          return;
+        }
         double targetDegrees = doc["degrees"];
-        int    speed         = doc["speed"];
-        int    stepperSpeed  = map(speed, 1, 100, 100, 2000);
+        int    speed         = doc["speed"] | 50;
+        speed                = constrain(speed, MIN_SPEED, MAX_SPEED);
+
+        // فحص حدود الأمان الفيزيائية للقاعدة
+        if (targetDegrees < MIN_BASE_DEGREES || targetDegrees > MAX_BASE_DEGREES) {
+          Serial.printf("[GUARD REJECT] Base degrees out of bounds: %.2f (Min: %.1f, Max: %.1f)\n",
+                        targetDegrees, MIN_BASE_DEGREES, MAX_BASE_DEGREES);
+          return;
+        }
+
+        int stepperSpeed = map(speed, 1, 100, 100, 2000);
 
         forceStop = false;
         double deltaDegrees = targetDegrees - currentBaseDegrees;
-        if (deltaDegrees != 0) {
+        if (abs(deltaDegrees) > 0.5) {
           MoveBaseDegrees(deltaDegrees, stepperSpeed);
         }
       }
 
       // ── إيقاف طارئ ───────────────────────────────────────────────
       else if (strcmp(commandType, "stop") == 0) {
-        forceStop = true;
+        forceStop      = true;
+        isServoMoving  = false;
+        isLinearMoving = false;
+        isBaseMoving   = false;
         stepperBase.stop();
         runningSequence = false;
         seq1Active      = false;
@@ -398,6 +458,9 @@ void setup() {
 
 /* ========= BASE STEPPER ========= */
 void MoveBaseDegrees(float degrees, int speed = DEFAULT_BASE_SPEED) {
+  if (isBaseMoving || forceStop) return;
+  isBaseMoving = true;
+
   long steps = degrees * STEPS_PER_DEGREE;
   stepperBase.setMaxSpeed(speed);
   stepperBase.move(steps);
@@ -410,6 +473,9 @@ void MoveBaseDegrees(float degrees, int speed = DEFAULT_BASE_SPEED) {
     stepperBase.run();
   }
   currentBaseDegrees += (degrees - (stepperBase.distanceToGo() / STEPS_PER_DEGREE));
+  currentBaseDegrees = constrain(currentBaseDegrees, MIN_BASE_DEGREES, MAX_BASE_DEGREES);
+
+  isBaseMoving = false;
   sendStatusToClient();
 }
 
@@ -483,27 +549,42 @@ void MoveArm(int startAngle, int endAngle, int speedDelay) {
   sendStatusToClient();
 }
 
-/* ========= LINEAR STEPPER (CM) - [FIX 2] إضافة stepDelayUs ========= */
-// stepDelayUs: المسافة الزمنية بين كل خطوة (مايكروثانية)
-// قيمة صغيرة = سريع | قيمة كبيرة = بطيء
+/* ========= LINEAR STEPPER (CM) ========= */
 void MoveLinearCM(float cm, char direction, int stepDelayUs = 200) {
+  if (isLinearMoving || forceStop) return;
+  isLinearMoving = true;
+
   long steps = cm * STEPS_PER_CM;
 
   if (direction == 'L') {
     digitalWrite(LIN_DIR, LOW);
-    currentLinearCM -= cm;
   } else if (direction == 'R') {
     digitalWrite(LIN_DIR, HIGH);
-    currentLinearCM += cm;
-  } else return;
+  } else {
+    isLinearMoving = false;
+    return;
+  }
 
+  long actualSteps = 0;
   for (long i = 0; i < abs(steps); i++) {
     if (!KeepAlive()) break;
     digitalWrite(LIN_STEP, HIGH);
-    delayMicroseconds(stepDelayUs);  // [FIX 2] استخدام السرعة القادمة من التطبيق
+    delayMicroseconds(stepDelayUs);
     digitalWrite(LIN_STEP, LOW);
     delayMicroseconds(stepDelayUs);
+    actualSteps++;
   }
+
+  // تحديث الموضع الفعلي بناءً على الخطوات التي نُفّذت حقيقةً (حتى لو حدث إيقاف طارئ في المنتصف)
+  float actualCm = (float)actualSteps / STEPS_PER_CM;
+  if (direction == 'L') {
+    currentLinearCM -= actualCm;
+  } else {
+    currentLinearCM += actualCm;
+  }
+  currentLinearCM = constrain(currentLinearCM, MIN_LINEAR_CM, MAX_LINEAR_CM);
+
+  isLinearMoving = false;
   sendStatusToClient();
 }
 

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../domain/models/movement_preset_model.dart';
+import '../models/movement_preset_model.dart';
 import '../robot_control_local_data_source.dart';
 
 class RobotLocalDataSourceImp implements RobotLocalDataSource {
