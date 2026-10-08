@@ -14,7 +14,7 @@ class LinearRailModel extends Equatable {
     required this.speed,
     required this.isMoving,
     this.minPosition = 0.0,
-    this.maxPosition = 100.0,
+    this.maxPosition = 45.0,
   });
 
   LinearRailModel copyWith({
@@ -42,7 +42,7 @@ class LinearRailModel extends Equatable {
       speed: json['speed'] ?? 50,
       isMoving: json['isMoving'] ?? false,
       minPosition: (json['minPosition'] as num?)?.toDouble() ?? 0.0,
-      maxPosition: (json['maxPosition'] as num?)?.toDouble() ?? 100.0,
+      maxPosition: (json['maxPosition'] as num?)?.toDouble() ?? 45.0,
     );
   }
 

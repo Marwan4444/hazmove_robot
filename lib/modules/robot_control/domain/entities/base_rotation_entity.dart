@@ -13,8 +13,8 @@ class BaseRotationEntity extends Equatable {
     required this.targetDegrees,
     required this.speed,
     required this.isMoving,
-    this.minDegrees = 0.0,
-    this.maxDegrees = 360.0,
+    this.minDegrees = -180.0,
+    this.maxDegrees = 180.0,
   });
 
   BaseRotationEntity copyWith({

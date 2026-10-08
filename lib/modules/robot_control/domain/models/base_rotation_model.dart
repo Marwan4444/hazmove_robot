@@ -13,8 +13,8 @@ class BaseRotationModel extends Equatable {
     required this.targetDegrees,
     required this.speed,
     required this.isMoving,
-    this.minDegrees = 0.0,
-    this.maxDegrees = 360.0,
+    this.minDegrees = -180.0,
+    this.maxDegrees = 180.0,
   });
 
   BaseRotationModel copyWith({
@@ -41,8 +41,8 @@ class BaseRotationModel extends Equatable {
       targetDegrees: (json['targetDegrees'] as num?)?.toDouble() ?? 0.0,
       speed: json['speed'] ?? 50,
       isMoving: json['isMoving'] ?? false,
-      minDegrees: (json['minDegrees'] as num?)?.toDouble() ?? 0.0,
-      maxDegrees: (json['maxDegrees'] as num?)?.toDouble() ?? 360.0,
+      minDegrees: (json['minDegrees'] as num?)?.toDouble() ?? -180.0,
+      maxDegrees: (json['maxDegrees'] as num?)?.toDouble() ?? 180.0,
     );
   }
 

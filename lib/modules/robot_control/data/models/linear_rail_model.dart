@@ -17,7 +17,7 @@ class LinearRailModel extends LinearRailEntity {
       speed: json['speed'] ?? 50,
       isMoving: json['isMoving'] ?? false,
       minPosition: (json['minPosition'] as num?)?.toDouble() ?? 0.0,
-      maxPosition: (json['maxPosition'] as num?)?.toDouble() ?? 100.0,
+      maxPosition: (json['maxPosition'] as num?)?.toDouble() ?? 45.0,
     );
   }
 

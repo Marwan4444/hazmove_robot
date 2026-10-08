@@ -10,15 +10,15 @@ class Validators {
   }
 
   static Either<Failure, double> validateLinearDistance(double distance) {
-    if (distance < 0 || distance > 100) {
-      return const Left(Failure('Linear distance must be between 0 and 100 cm', type: FailureType.invalidInput));
+    if (distance < 0 || distance > 45) {
+      return const Left(Failure('Linear distance must be between 0 and 45 cm', type: FailureType.invalidInput));
     }
     return Right(distance);
   }
 
   static Either<Failure, double> validateBaseRotation(double degrees) {
-    if (degrees < 0 || degrees > 360) {
-      return const Left(Failure('Base rotation must be between 0 and 360 degrees', type: FailureType.invalidInput));
+    if (degrees < -180 || degrees > 180) {
+      return const Left(Failure('Base rotation must be between -180 and 180 degrees', type: FailureType.invalidInput));
     }
     return Right(degrees);
   }

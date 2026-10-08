@@ -13,8 +13,8 @@ class RobotLimitsSection extends StatelessWidget {
           SettingsRow(label: 'Max Linear Speed', value: '100'),
           SettingsRow(label: 'Max Base Speed', value: '100'),
           SettingsRow(label: 'Servo Range', value: '0\u00b0 - 180\u00b0'),
-          SettingsRow(label: 'Linear Range', value: '0 - 100 cm'),
-          SettingsRow(label: 'Base Range', value: '0\u00b0 - 360\u00b0'),
+          SettingsRow(label: 'Linear Range', value: '0 - 45 cm'),
+          SettingsRow(label: 'Base Range', value: '-180\u00b0 - 180\u00b0'),
         ],
       ),
     );

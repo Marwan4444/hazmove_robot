@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../../../../modules/robot_control/domain/entities/robot_arm_entity.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/extensions/theme_extensions.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -243,7 +244,7 @@ class _RulerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pos = robotArm?.linearRail.currentPosition ?? 50.0;
+    final pos = robotArm?.linearRail.currentPosition ?? 22.5;
     return Column(
       children: [
         SizedBox(
@@ -260,7 +261,7 @@ class _RulerWidget extends StatelessWidget {
         const SizedBox(height: 3),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: ['0 cm', '25 cm', '50 cm', '75 cm', '100 cm']
+          children: ['0 cm', '15 cm', '30 cm', '45 cm']
               .map((l) => Text(
                     l,
                     style: TextStyle(
@@ -357,7 +358,7 @@ class IsometricRobotPainter extends CustomPainter {
 
   void _drawRobot(Canvas canvas) {
     final arm = robotArm!;
-    final railX = arm.linearRail.currentPosition / 5.0 - 10.0;
+    final railX = arm.linearRail.currentPosition / AppConstants.maxLinearDistance * 20.0 - 10.0;
     final baseRad = arm.baseRotation.currentDegrees * math.pi / 180.0;
     final armDirX = math.sin(baseRad);
     final armDirY = -math.cos(baseRad);
@@ -704,7 +705,7 @@ class _RulerPainter extends CustomPainter {
       Paint()..color = trackColor,
     );
 
-    final aw = (position / 100.0).clamp(0.0, 1.0) * size.width;
+    final aw = (position / AppConstants.maxLinearDistance).clamp(0.0, 1.0) * size.width;
     if (aw > 0) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -727,7 +728,7 @@ class _RulerPainter extends CustomPainter {
       );
     }
 
-    final tx = (position / 100.0).clamp(0.0, 1.0) * size.width;
+    final tx = (position / AppConstants.maxLinearDistance).clamp(0.0, 1.0) * size.width;
     canvas.drawCircle(Offset(tx, size.height / 2), 6, Paint()..color = accentColor);
     canvas.drawCircle(Offset(tx, size.height / 2), 3.5, Paint()..color = Colors.white);
   }

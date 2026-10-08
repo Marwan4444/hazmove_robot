@@ -4,13 +4,16 @@ class AppConstants {
   static const int connectionTimeout = 15000;
   static const int sendTimeout = 5000;
   
-  // Robot Arm Limits
+  // Robot Arm Limits — MUST match docs/protocol.md §1 and the ESP32
+  // firmware constants (MIN_/MAX_*). The firmware is the final safety
+  // authority; these Flutter values exist for UX validation only.
+  // Verified physical limits: linear 0–45 cm, base −180–180°.
   static const int maxServoAngle = 180;
   static const int minServoAngle = 0;
-  static const double maxLinearDistance = 100.0; // cm
+  static const double maxLinearDistance = 45.0; // cm
   static const double minLinearDistance = 0.0;
-  static const double maxBaseRotation = 360.0; // degrees
-  static const double minBaseRotation = 0.0;
+  static const double maxBaseRotation = 180.0; // degrees
+  static const double minBaseRotation = -180.0;
   
   // Speed Limits
   static const int maxServoSpeed = 100;

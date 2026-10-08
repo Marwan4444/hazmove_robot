@@ -14,7 +14,7 @@ class LinearRailEntity extends Equatable {
     required this.speed,
     required this.isMoving,
     this.minPosition = 0.0,
-    this.maxPosition = 100.0,
+    this.maxPosition = 45.0,
   });
 
   LinearRailEntity copyWith({

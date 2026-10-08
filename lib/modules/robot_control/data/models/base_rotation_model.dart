@@ -16,8 +16,8 @@ class BaseRotationModel extends BaseRotationEntity {
       targetDegrees: (json['targetDegrees'] as num?)?.toDouble() ?? 0.0,
       speed: json['speed'] ?? 50,
       isMoving: json['isMoving'] ?? false,
-      minDegrees: (json['minDegrees'] as num?)?.toDouble() ?? 0.0,
-      maxDegrees: (json['maxDegrees'] as num?)?.toDouble() ?? 360.0,
+      minDegrees: (json['minDegrees'] as num?)?.toDouble() ?? -180.0,
+      maxDegrees: (json['maxDegrees'] as num?)?.toDouble() ?? 180.0,
     );
   }
 
