@@ -153,7 +153,7 @@ There is no `usecases/` layer (Cubits call the repository directly) and no
 
 ```bash
 flutter analyze
-flutter test        # 96 unit/cubit/widget tests, no hardware needed
+flutter test        # 98 unit/cubit/widget tests, no hardware needed
 ```
 
 Suites: command serialization + boundary validation, response parsing
@@ -193,7 +193,7 @@ connection card). CI (`.github/workflows/ci.yml`) runs
 
 WebSocket transport, typed ACK/DONE/REJECT/ERROR protocol, centralized
 verified limits (servo 0-180, rail 0-45 cm, base +-180 deg), per-execution
-preset cancellation, real network-availability check, 96-test suite, CI,
+preset cancellation, real network-availability check, 98-test suite, CI,
 dependency cleanup, failure taxonomy with user messages.
 
 ### Explicitly NOT implemented

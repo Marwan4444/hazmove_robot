@@ -19,7 +19,8 @@ All architectural / protocol changes. Newest first.
 - Disabled Auto Mode 2 (`Sequence2()` is an empty firmware stub); documented TODO.
 - Implemented real `NetworkInfo` (local-network aware); WebSocket stays the
   authoritative connection state.
-- Replaced broken counter widget test with real unit/cubit/widget test suite.
+- Replaced broken counter widget test with real unit/cubit/widget test suite
+  (98 tests, all passing, no hardware needed).
 - Added GitHub Actions CI (`analyze` + `test` + `build apk --debug`).
 - Rewrote README from implementation; removed Bluetooth/usecases/features/HTTP
   claims; separated Implemented vs Planned.

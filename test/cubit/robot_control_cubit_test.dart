@@ -56,6 +56,10 @@ void main() {
       repo.connectionController.add(const Right(false));
       await Future.delayed(Duration.zero);
       expect(cubit.state.connectionStatus, ConnectionStatus.disconnected);
+      // Reconnect (e.g. auto-reconnect success) flips it back.
+      repo.connectionController.add(const Right(true));
+      await Future.delayed(Duration.zero);
+      expect(cubit.state.connectionStatus, ConnectionStatus.connected);
     });
 
     test('status stream updates the arm and clears failures', () async {
