@@ -1,17 +1,22 @@
 import 'dart:async';
-import 'dart:developer' as dev;
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../models/robot_arm_model.dart';
+import '../protocol/robot_response.dart';
 
 import '../robot_control_remote_data_source.dart';
 
 class RobotRemoteDataSourceApiImp implements RobotRemoteDataSource {
   WebSocketChannel? _channel;
-  final StreamController<bool> _connectionController = 
+  final StreamController<bool> _connectionController =
       StreamController<bool>.broadcast();
-  final StreamController<RobotArmModel> _statusController = 
+  final StreamController<RobotArmModel> _statusController =
       StreamController<RobotArmModel>.broadcast();
+  // Command responses bypass throttling: completion must be reliable.
+  final StreamController<RobotResponse> _responseController =
+      StreamController<RobotResponse>.broadcast();
 
   // ─── Auto-Reconnect fields ──────────────────────────────────
   String? _lastUrl;
@@ -37,6 +42,9 @@ class RobotRemoteDataSourceApiImp implements RobotRemoteDataSource {
   Stream<RobotArmModel> get robotStatus => _statusController.stream;
 
   @override
+  Stream<RobotResponse> get commandResponses => _responseController.stream;
+
+  @override
   Future<void> connect(String url) async {
     _intentionalDisconnect = false;
     _reconnectAttempts = 0;
@@ -56,30 +64,33 @@ class RobotRemoteDataSourceApiImp implements RobotRemoteDataSource {
       _channel = null;
 
       _channel = WebSocketChannel.connect(Uri.parse(url));
-      
+
+      // Wait for genuine connection handshake with timeout
+      await _channel!.ready.timeout(
+        const Duration(milliseconds: AppConstants.connectionTimeout),
+      );
+
       _channel?.stream.listen(
         (data) {
           _handleIncomingData(data);
         },
         onError: (error) {
-          dev.log('[WS] Connection error: $error', name: 'WebSocket');
+          _log('[WS] Connection error: $error');
           _connectionController.add(false);
           _scheduleReconnect();
         },
         onDone: () {
-          dev.log('[WS] Connection closed', name: 'WebSocket');
+          _log('[WS] Connection closed');
           _connectionController.add(false);
           _scheduleReconnect();
         },
       );
 
-      // Brief delay to allow WS negotiation
-      await Future.delayed(const Duration(milliseconds: 500));
       _connectionController.add(true);
       _reconnectAttempts = 0; // Reset counter on success
-      dev.log('[WS] Connected successfully to $url', name: 'WebSocket');
+      _log('[WS] Connected successfully to $url');
     } catch (e) {
-      dev.log('[WS] Connection failed: $e', name: 'WebSocket');
+      _log('[WS] Connection failed: $e');
       _connectionController.add(false);
       _scheduleReconnect();
     }
@@ -90,9 +101,8 @@ class RobotRemoteDataSourceApiImp implements RobotRemoteDataSource {
   void _scheduleReconnect() {
     if (_intentionalDisconnect || _lastUrl == null) return;
     if (_reconnectAttempts >= _maxReconnectAttempts) {
-      dev.log(
+      _log(
         '[WS] Max reconnect attempts reached ($_maxReconnectAttempts). Giving up.',
-        name: 'WebSocket',
       );
       return;
     }
@@ -102,10 +112,9 @@ class RobotRemoteDataSourceApiImp implements RobotRemoteDataSource {
     final delay = _baseReconnectDelay * (1 << _reconnectAttempts);
     _reconnectAttempts++;
 
-    dev.log(
+    _log(
       '[WS] Reconnecting in ${delay.inSeconds}s '
       '(attempt $_reconnectAttempts/$_maxReconnectAttempts)',
-      name: 'WebSocket',
     );
 
     _reconnectTimer = Timer(delay, () async {
@@ -143,35 +152,49 @@ class RobotRemoteDataSourceApiImp implements RobotRemoteDataSource {
   }
 
   void _handleIncomingData(dynamic data) {
-    // ─── Log every raw message from ESP32 ───────────────────────────────
-    dev.log('[ESP32 ←] $data', name: 'WebSocket');
-    // ────────────────────────────────────────────────────────────────────
-
-    final now = DateTime.now();
-    if (now.difference(_lastProcessTime).inMilliseconds < _throttleMs) {
-      return;
-    }
-    _lastProcessTime = now;
-
+    // Command responses (ack/done/reject/error) bypass throttling so command
+    // completion stays reliable; only status snapshots are throttled (~30 FPS).
     try {
       final Map<String, dynamic> json = jsonDecode(data);
+      final type = json['type']?.toString();
 
-      dev.log('[ESP32 parsed] type=${json['type']} | data=${json['data']}',
-          name: 'WebSocket');
+      if (type != null && type != RobotCommands.status) {
+        try {
+          _responseController.add(RobotResponse.fromJson(json));
+        } catch (e) {
+          _log('[ESP32 response ERROR] $e | raw=$data');
+        }
+        return;
+      }
 
-      if (json['type'] == 'status') {
-        final robotArm = RobotArmModel.fromJson(json['data'] ?? {});
+      final now = DateTime.now();
+      if (now.difference(_lastProcessTime).inMilliseconds < _throttleMs) {
+        return;
+      }
+      _lastProcessTime = now;
+
+      _log('[ESP32 parsed] type=$type');
+      if (type == RobotCommands.status) {
+        final robotArm = RobotArmModel.fromJson(
+            json['data'] is Map<String, dynamic> ? json['data'] : {});
         _statusController.add(robotArm);
       }
     } catch (e) {
-      dev.log('[ESP32 parse ERROR] $e | raw=$data', name: 'WebSocket', level: 900);
+      _log('[ESP32 parse ERROR] $e | raw=$data');
     }
+  }
+
+  /// Debug-only transport log. Per-frame logging in release builds wastes
+  /// CPU/IO on every status frame, so it is compiled out via [kDebugMode].
+  void _log(String message) {
+    if (kDebugMode) debugPrint(message);
   }
 
   void dispose() {
     _reconnectTimer?.cancel();
     _connectionController.close();
     _statusController.close();
+    _responseController.close();
     _channel?.sink.close();
   }
 }

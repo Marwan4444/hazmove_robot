@@ -98,7 +98,7 @@ broadcast. `stop` without `commandId` gets a `status` broadcast only (legacy).
 { "type": "pause", "commandId": "uuid" }
 ```
 
-Sets `softwarePause`. Response: `ack` (+ `status` with `"status": "paused"`).
+Sets `softwarePause`. Response: `ack` then `done` (+ `status` with `"status": "paused"`).
 
 ### 2.6 `resume` — resume movements
 
@@ -106,7 +106,7 @@ Sets `softwarePause`. Response: `ack` (+ `status` with `"status": "paused"`).
 { "type": "resume", "commandId": "uuid" }
 ```
 
-Clears `softwarePause`/`forceStop`. Response: `ack` (+ `status`).
+Clears `softwarePause`/`forceStop`. Response: `ack` then `done` (+ `status`).
 
 ### 2.7 `mode` — change operating mode
 
@@ -149,7 +149,8 @@ no-op/stop/pause/resume/mode).
 ```
 
 Reasons: `OUT_OF_RANGE` | `INVALID_SERVO_ID` | `BUSY` | `INVALID_MODE` |
-`SEQUENCE_NOT_IMPLEMENTED` | `MISSING_FIELD` | `INVALID_JSON`.
+`SEQUENCE_NOT_IMPLEMENTED` | `MISSING_FIELD` | `UNKNOWN_COMMAND` |
+`INVALID_JSON`.
 Never silently discard a `commandId`-bearing command.
 
 ### 3.4 `error` — command failed during/after acceptance
@@ -233,6 +234,7 @@ ever requested. Do not invent arm choreography without hardware sign-off.
 | `INVALID_MODE` | unknown `mode` value | FW `reject` |
 | `SEQUENCE_NOT_IMPLEMENTED` | `seq2` requested | FW `reject` |
 | `MISSING_FIELD` | required field absent | FW `reject` |
+| `UNKNOWN_COMMAND` | unknown `type` value | FW `reject` |
 | `INVALID_JSON` | unparsable payload | FW `error` (no `commandId`) |
 | `INTERRUPTED` | stop/forceStop aborted motion | FW `error` |
 | timeout (no terminal frame) | defensive fallback | app `FailureType.timeout` |

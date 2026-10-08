@@ -14,15 +14,33 @@ import '../models/linear_rail_model.dart';
 import '../models/base_rotation_model.dart';
 import '../mappers/preset_mapper.dart';
 import '../mappers/robot_arm_mapper.dart';
+import '../protocol/command_tracker.dart';
+import '../protocol/robot_command.dart';
+import '../protocol/robot_response.dart';
 
 class RobotControlRepoImpl implements RobotControlRepo {
   final RobotRemoteDataSource remoteDataSource;
   final RobotLocalDataSource localDataSource;
 
+  /// Correlates outbound `commandId`s with inbound terminal frames.
+  final CommandTracker commandTracker = CommandTracker();
+  StreamSubscription<RobotResponse>? _responseSub;
+
+  /// Generous per-command ceilings. The UI safety timers (cubit) are
+  /// deliberately LONGER so the repository timeout always wins first and the
+  /// cubit timer stays a purely defensive fallback.
+  static const Duration servoAwaitTimeout = Duration(seconds: 15);
+  static const Duration baseAwaitTimeout = Duration(seconds: 30);
+  static const Duration linearAwaitTimeout = Duration(seconds: 120);
+  static const Duration controlAwaitTimeout = Duration(seconds: 10);
+
   RobotControlRepoImpl({
     required this.remoteDataSource,
     required this.localDataSource,
-  });
+  }) {
+    _responseSub =
+        remoteDataSource.commandResponses.listen(commandTracker.resolve);
+  }
 
   @override
   Stream<Either<Failure, bool>> get connectionStatus =>
@@ -64,6 +82,16 @@ class RobotControlRepoImpl implements RobotControlRepo {
   }
 
   @override
+  Future<Either<Failure, String?>> getConnectionUrl() async {
+    try {
+      final url = await localDataSource.getConnectionUrl();
+      return Right(url);
+    } catch (e) {
+      return Left(Failure.fromException(e));
+    }
+  }
+
+  @override
   Future<Either<Failure, RobotArmEntity>> getCurrentStatus() async {
     try {
       // Return a default baseline state when requested, status is live updated via streams
@@ -96,134 +124,145 @@ class RobotControlRepoImpl implements RobotControlRepo {
     }
   }
 
-  @override
-  Future<Either<Failure, void>> moveServo(int servoId, int startAngle, int endAngle, int speed) async {
+  /// Sends a typed command and awaits its terminal frame.
+  ///
+  /// Normal completion resolves via `DONE`; `REJECT`/`ERROR` map to typed
+  /// failures; no terminal frame within [timeout] maps to a timeout failure.
+  /// Client-side range violations fail fast without touching the socket.
+  Future<Either<Failure, void>> _sendAndAwait(
+    RobotCommand command, {
+    required Duration timeout,
+  }) async {
+    final valid = command.validate();
+    if (valid.isLeft()) {
+      return Left(valid.fold((l) => l, (_) => Failure('Invalid command')));
+    }
+    final pending =
+        commandTracker.track(command.commandId, timeout: timeout);
     try {
-      // ESP32 يقرأ 'end' و 'speed' فقط - 'start' غير مستخدم في ESP32
-      final command = {
-        'type': RobotCommands.servo,
-        'servo_id': servoId,
-        'end': endAngle,
-        'speed': speed,
-      };
-      await remoteDataSource.sendCommand(command);
-      return const Right(null);
+      await remoteDataSource.sendCommand(command.toJson());
+    } catch (e) {
+      commandTracker.cancel(command.commandId);
+      return Left(Failure.fromException(e));
+    }
+    try {
+      final response = await pending;
+      if (response is DoneResponse) return const Right(null);
+      if (response is RejectResponse) {
+        return Left(Failure(
+          _rejectMessage(response.reason),
+          type: FailureType.rejected,
+        ));
+      }
+      if (response is ErrorResponse) {
+        return Left(Failure(
+          'Robot error: ${response.reason}',
+          type: FailureType.firmwareError,
+        ));
+      }
+      return const Left(
+          Failure('Unexpected robot response.', type: FailureType.unknown));
+    } on TimeoutException catch (e) {
+      return Left(Failure(
+        'Robot did not confirm the command in time (${e.duration}).',
+        type: FailureType.timeout,
+      ));
     } catch (e) {
       return Left(Failure.fromException(e));
     }
   }
 
-  @override
-  Future<Either<Failure, void>> setServoAngle(int servoId, int angle, int speed) async {
-    try {
-      // ESP32 يقرأ 'end' فقط كزاوية هدف
-      final command = {
-        'type': RobotCommands.servo,
-        'servo_id': servoId,
-        'end': angle,
-        'speed': speed,
-      };
-      await remoteDataSource.sendCommand(command);
-      return const Right(null);
-    } catch (e) {
-      return Left(Failure.fromException(e));
+  static String _rejectMessage(String reason) {
+    switch (reason) {
+      case RobotCommands.reasonOutOfRange:
+        return 'Target is outside the robot safety limits.';
+      case RobotCommands.reasonInvalidServoId:
+        return 'Unknown servo ID.';
+      case RobotCommands.reasonBusy:
+        return 'Robot is busy. Wait for the current movement to finish.';
+      case RobotCommands.reasonInvalidMode:
+        return 'Unknown robot mode.';
+      case RobotCommands.reasonSequenceNotImplemented:
+        return 'Auto Mode 2 is not available on this robot yet.';
+      case RobotCommands.reasonMissingField:
+        return 'Command was missing a required field.';
+      case RobotCommands.reasonUnknownCommand:
+        return 'Robot did not understand the command.';
+      default:
+        return 'Robot rejected the command ($reason).';
     }
   }
 
   @override
-  Future<Either<Failure, void>> moveLinearRail(double distance, int speed) async {
-    try {
-      final command = {
-        'type': RobotCommands.linear,
-        'distance': distance,
-        'speed': speed,
-      };
-      await remoteDataSource.sendCommand(command);
-      return const Right(null);
-    } catch (e) {
-      return Left(Failure.fromException(e));
-    }
+  Future<Either<Failure, void>> moveServo(
+      int servoId, int startAngle, int endAngle, int speed) {
+    // NOTE: `startAngle` is kept for interface stability; the firmware reads
+    // the live position via `servo.read()` and only needs `end`.
+    return _sendAndAwait(
+      ServoCommand(servoId: servoId, endAngle: endAngle, speed: speed),
+      timeout: servoAwaitTimeout,
+    );
   }
 
   @override
-  Future<Either<Failure, void>> setLinearPosition(double position, int speed) async {
-    try {
-      final command = {
-        'type': RobotCommands.linear,
-        'distance': position,
-        'speed': speed,
-      };
-      await remoteDataSource.sendCommand(command);
-      return const Right(null);
-    } catch (e) {
-      return Left(Failure.fromException(e));
-    }
+  Future<Either<Failure, void>> setServoAngle(
+      int servoId, int angle, int speed) {
+    return _sendAndAwait(
+      ServoCommand(servoId: servoId, endAngle: angle, speed: speed),
+      timeout: servoAwaitTimeout,
+    );
   }
 
   @override
-  Future<Either<Failure, void>> rotateBase(double degrees, int speed) async {
-    try {
-      final command = {
-        'type': RobotCommands.base,
-        'degrees': degrees,
-        'speed': speed,
-      };
-      await remoteDataSource.sendCommand(command);
-      return const Right(null);
-    } catch (e) {
-      return Left(Failure.fromException(e));
-    }
+  Future<Either<Failure, void>> moveLinearRail(double distance, int speed,
+      {Duration? timeout}) {
+    return _sendAndAwait(
+      LinearCommand(distance: distance, speed: speed),
+      timeout: timeout ?? linearAwaitTimeout,
+    );
   }
 
   @override
-  Future<Either<Failure, void>> setBaseRotation(double degrees, int speed) async {
-    try {
-      final command = {
-        'type': RobotCommands.base,
-        'degrees': degrees,
-        'speed': speed,
-      };
-      await remoteDataSource.sendCommand(command);
-      return const Right(null);
-    } catch (e) {
-      return Left(Failure.fromException(e));
-    }
+  Future<Either<Failure, void>> setLinearPosition(double position, int speed,
+      {Duration? timeout}) {
+    return _sendAndAwait(
+      LinearCommand(distance: position, speed: speed),
+      timeout: timeout ?? linearAwaitTimeout,
+    );
+  }
+
+  @override
+  Future<Either<Failure, void>> rotateBase(double degrees, int speed) {
+    return _sendAndAwait(
+      BaseCommand(degrees: degrees, speed: speed),
+      timeout: baseAwaitTimeout,
+    );
+  }
+
+  @override
+  Future<Either<Failure, void>> setBaseRotation(double degrees, int speed) {
+    return _sendAndAwait(
+      BaseCommand(degrees: degrees, speed: speed),
+      timeout: baseAwaitTimeout,
+    );
   }
 
   bool _isPresetCancelled = false;
 
   @override
-  Future<Either<Failure, void>> stopAllMovements() async {
-    try {
-      _isPresetCancelled = true;
-      final command = {'type': RobotCommands.stop};
-      await remoteDataSource.sendCommand(command);
-      return const Right(null);
-    } catch (e) {
-      return Left(Failure.fromException(e));
-    }
+  Future<Either<Failure, void>> stopAllMovements() {
+    _isPresetCancelled = true;
+    return _sendAndAwait(StopCommand(), timeout: controlAwaitTimeout);
   }
 
   @override
-  Future<Either<Failure, void>> pauseMovements() async {
-    try {
-      final command = {'type': RobotCommands.pause};
-      await remoteDataSource.sendCommand(command);
-      return const Right(null);
-    } catch (e) {
-      return Left(Failure.fromException(e));
-    }
+  Future<Either<Failure, void>> pauseMovements() {
+    return _sendAndAwait(PauseCommand(), timeout: controlAwaitTimeout);
   }
 
   @override
-  Future<Either<Failure, void>> resumeMovements() async {
-    try {
-      final command = {'type': RobotCommands.resume};
-      await remoteDataSource.sendCommand(command);
-      return const Right(null);
-    } catch (e) {
-      return Left(Failure.fromException(e));
-    }
+  Future<Either<Failure, void>> resumeMovements() {
+    return _sendAndAwait(ResumeCommand(), timeout: controlAwaitTimeout);
   }
 
   @override
@@ -261,22 +300,63 @@ class RobotControlRepoImpl implements RobotControlRepo {
     }
   }
 
+  /// Builds a typed, validated command from a stored preset step.
+  /// Falls back to [RawCommand] for unknown step types so the firmware —
+  /// not the app — decides (via `reject`) whether the step is legal.
+  RobotCommand _commandFromStep(String type, Map<String, dynamic> params) {
+    int speedOf(Map<String, dynamic> p) =>
+        (p['speed'] as num?)?.toInt() ?? 50;
+    try {
+      switch (type) {
+        case RobotCommands.servo:
+          return ServoCommand(
+            servoId: (params['servo_id'] as num).toInt(),
+            endAngle: (params['end'] as num).toInt(),
+            speed: speedOf(params),
+          );
+        case RobotCommands.linear:
+          return LinearCommand(
+            distance: (params['distance'] as num).toDouble(),
+            speed: speedOf(params),
+          );
+        case RobotCommands.base:
+          return BaseCommand(
+            degrees: (params['degrees'] as num).toDouble(),
+            speed: speedOf(params),
+          );
+        case RobotCommands.stop:
+          return StopCommand();
+        case RobotCommands.pause:
+          return PauseCommand();
+        case RobotCommands.resume:
+          return ResumeCommand();
+        case RobotCommands.mode:
+          return ModeCommand(params['mode']?.toString() ?? RobotModes.manual);
+        default:
+          return RawCommand(type: type, parameters: params);
+      }
+    } catch (_) {
+      return RawCommand(type: type, parameters: params);
+    }
+  }
+
   @override
   Future<Either<Failure, void>> executePreset(String presetId) async {
     try {
       _isPresetCancelled = false;
       final presets = await localDataSource.getPresets();
       final preset = presets.firstWhere((p) => p.id == presetId);
-      
+
       for (final step in preset.steps) {
         if (_isPresetCancelled) break;
 
-        final command = {
-          'type': step.type,
-          ...step.parameters,
-        };
-        await remoteDataSource.sendCommand(command);
-        
+        final command = _commandFromStep(step.type, step.parameters);
+        final result = await _sendAndAwait(command,
+            timeout: _presetStepTimeout(command));
+        if (result.isLeft()) {
+          return result;
+        }
+
         if (step.delayMs > 0) {
           final intervals = (step.delayMs / 100).ceil();
           for (int i = 0; i < intervals; i++) {
@@ -286,23 +366,30 @@ class RobotControlRepoImpl implements RobotControlRepo {
         }
         if (_isPresetCancelled) break;
       }
+      if (_isPresetCancelled) {
+        return const Left(
+            Failure('Preset execution cancelled.', type: FailureType.cancelled));
+      }
       return const Right(null);
     } catch (e) {
       return Left(Failure.fromException(e));
     }
   }
 
+  static Duration _presetStepTimeout(RobotCommand command) {
+    if (command is LinearCommand) return linearAwaitTimeout;
+    if (command is BaseCommand) return baseAwaitTimeout;
+    if (command is ServoCommand) return servoAwaitTimeout;
+    return controlAwaitTimeout;
+  }
+
   @override
-  Future<Either<Failure, void>> setMode(String mode) async {
-    try {
-      final command = {
-        'type': 'mode',
-        'mode': mode,
-      };
-      await remoteDataSource.sendCommand(command);
-      return const Right(null);
-    } catch (e) {
-      return Left(Failure.fromException(e));
-    }
+  Future<Either<Failure, void>> setMode(String mode) {
+    return _sendAndAwait(ModeCommand(mode), timeout: controlAwaitTimeout);
+  }
+
+  /// Releases the command-response subscription. Call on app teardown.
+  Future<void> dispose() async {
+    await _responseSub?.cancel();
   }
 }

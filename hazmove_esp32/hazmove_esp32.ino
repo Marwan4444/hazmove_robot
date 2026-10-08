@@ -7,6 +7,11 @@
    [FIX 3] تحسين أمر "mode" لدعم seq1/seq2 بشكل صحيح
    [FIX 4] أمر السيرفو: Flutter بترسل "end" فقط (بدون "start")
            - ESP32 يقرأ الموضع الحالي من servo.read() تلقائياً
+   [FIX 5] بروتوكول ACK/DONE/REJECT/ERROR (راجع docs/protocol.md)
+           - كل أمر يحمل "commandId" من Flutter
+           - ACK فور الاستلام، DONE بعد انتهاء الحركة
+           - REJECT بدل التجاهل الصامت (خارج الحدود/مشغول/غير صالح)
+           - طلب "seq2" مرفوض: Sequence2() غير معرّفة (SEQUENCE_NOT_IMPLEMENTED)
    ================================================================ */
 
 #include <WiFi.h>
@@ -105,6 +110,51 @@ bool isServoMoving  = false;
 bool isLinearMoving = false;
 bool isBaseMoving   = false;
 
+/* ========= COMMAND RESPONSE PROTOCOL (FIX 5: ACK/DONE/REJECT/ERROR) ========= */
+/* See docs/protocol.md. Every command may carry "commandId"; the firmware   */
+/* echoes it so Flutter can correlate command → ACK → DONE/REJECT/ERROR.     */
+/* Frames are sent to the requesting client only (sendTXT), never broadcast. */
+
+String getCommandId(JsonDocument &doc) {
+  if (doc.containsKey("commandId")) {
+    const char* id = doc["commandId"];
+    if (id != NULL) return String(id);
+  }
+  return "";
+}
+
+void sendProtoFrame(uint8_t num, const char* frameType, const String& cmdId,
+                    const char* statusKey, const char* statusValue,
+                    const char* reason) {
+  if (cmdId.length() == 0) return; // legacy client: no correlation possible
+  StaticJsonDocument<192> doc;
+  doc["type"] = frameType;
+  doc["commandId"] = cmdId;
+  if (statusKey != NULL) doc[statusKey] = statusValue;
+  if (reason != NULL) doc["reason"] = reason;
+  String out;
+  serializeJson(doc, out);
+  webSocket.sendTXT(num, out);
+}
+
+void sendAck(uint8_t num, const String& cmdId) {
+  sendProtoFrame(num, "ack", cmdId, "status", "accepted", NULL);
+}
+
+void sendDone(uint8_t num, const String& cmdId) {
+  sendProtoFrame(num, "done", cmdId, "status", "completed", NULL);
+}
+
+void sendReject(uint8_t num, const String& cmdId, const char* reason) {
+  Serial.printf("[REJECT] id=%s reason=%s\n", cmdId.c_str(), reason);
+  sendProtoFrame(num, "reject", cmdId, NULL, NULL, reason);
+}
+
+void sendErrorFrame(uint8_t num, const String& cmdId, const char* reason) {
+  Serial.printf("[ERROR] id=%s reason=%s\n", cmdId.c_str(), reason);
+  sendProtoFrame(num, "error", cmdId, NULL, NULL, reason);
+}
+
 /* ========= CONTROL SERVOS BY APP ID ========= */
 void controlServoById(int id, int targetAngle, int speedDelay) {
   if (isServoMoving || forceStop) return;
@@ -164,7 +214,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
     case WStype_TEXT: {
       Serial.printf("[%u] Received: %s\n", num, payload);
 
-      StaticJsonDocument<256> doc;
+      StaticJsonDocument<384> doc;
       DeserializationError error = deserializeJson(doc, payload);
       if (error) {
         Serial.print("JSON Error: ");
@@ -173,80 +223,121 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       }
 
       const char* commandType = doc["type"];
+      if (commandType == NULL) {
+        Serial.println("[GUARD REJECT] Missing command type");
+        return;
+      }
+      // [FIX 5] correlation ID echoed in ack/done/reject/error
+      String cmdId = getCommandId(doc);
 
       // ── أمر السيرفو ──────────────────────────────────────────────
       if (strcmp(commandType, "servo") == 0) {
-        if (isServoMoving || runningSequence) {
-          Serial.println("[GUARD] Servo command ignored: already moving or sequence running");
+        if (doc["servo_id"].isNull() || doc["end"].isNull()) {
+          Serial.println("[GUARD REJECT] Servo command missing servo_id/end");
+          sendReject(num, cmdId, "MISSING_FIELD");
           return;
         }
         int id          = doc["servo_id"];
         int targetAngle = doc["end"];
         int speed       = doc["speed"] | 50;
+
+        if (id < 1 || id > 5) {
+          Serial.printf("[GUARD REJECT] Invalid servo ID: %d\n", id);
+          sendReject(num, cmdId, "INVALID_SERVO_ID");
+          return;
+        }
+        if (targetAngle < MIN_SERVO_ANGLE || targetAngle > MAX_SERVO_ANGLE) {
+          Serial.printf("[GUARD REJECT] Servo angle out of bounds: %d\n", targetAngle);
+          sendReject(num, cmdId, "OUT_OF_RANGE");
+          return;
+        }
+        if (isServoMoving || runningSequence) {
+          Serial.println("[GUARD] Servo command ignored: already moving or sequence running");
+          sendReject(num, cmdId, "BUSY");
+          return;
+        }
         speed           = constrain(speed, MIN_SPEED, MAX_SPEED);
         int speedDelay  = map(speed, 1, 100, 30, 2);
 
-        if (id < 1 || id > 5) {
-          Serial.printf("[GUARD] Invalid servo ID: %d\n", id);
-          return;
-        }
-
+        sendAck(num, cmdId);
         forceStop = false;
         controlServoById(id, targetAngle, speedDelay);
+        if (forceStop) sendErrorFrame(num, cmdId, "INTERRUPTED");
+        else           sendDone(num, cmdId);
       }
 
       // ── أمر السكة الخطية (مع speed وفحص الحدود) ─────────────────────────────
       else if (strcmp(commandType, "linear") == 0) {
-        if (isLinearMoving || runningSequence) {
-          Serial.println("[GUARD] Linear command ignored: already moving or sequence running");
+        if (doc["distance"].isNull()) {
+          Serial.println("[GUARD REJECT] Linear command missing distance");
+          sendReject(num, cmdId, "MISSING_FIELD");
           return;
         }
         double targetDistance = doc["distance"];
         int    speed          = doc["speed"] | 50;
-        speed                 = constrain(speed, MIN_SPEED, MAX_SPEED);
 
         // فحص حدود الأمان الفيزيائية للسكة
         if (targetDistance < MIN_LINEAR_CM || targetDistance > MAX_LINEAR_CM) {
           Serial.printf("[GUARD REJECT] Linear distance out of bounds: %.2f (Min: %.1f, Max: %.1f)\n",
                         targetDistance, MIN_LINEAR_CM, MAX_LINEAR_CM);
+          sendReject(num, cmdId, "OUT_OF_RANGE");
           return;
         }
+        if (isLinearMoving || runningSequence) {
+          Serial.println("[GUARD] Linear command ignored: already moving or sequence running");
+          sendReject(num, cmdId, "BUSY");
+          return;
+        }
+        speed = constrain(speed, MIN_SPEED, MAX_SPEED);
 
         // تحويل speed (1-100) إلى تأخير (5000-500 مايكروثانية)
         int stepDelayUs = map(speed, 1, 100, LINEAR_SLOW_DELAY_US, LINEAR_FAST_DELAY_US);
 
+        sendAck(num, cmdId);
         forceStop = false;
         double delta = targetDistance - currentLinearCM;
         if (abs(delta) > 0.05) {
           char dir = (delta > 0) ? 'R' : 'L';
           MoveLinearCM(abs(delta), dir, stepDelayUs);
         }
+        if (forceStop) sendErrorFrame(num, cmdId, "INTERRUPTED");
+        else           sendDone(num, cmdId);
       }
 
       // ── أمر القاعدة الدوارة (مع فحص الحدود) ──────────────────────────────
       else if (strcmp(commandType, "base") == 0) {
-        if (isBaseMoving || runningSequence) {
-          Serial.println("[GUARD] Base command ignored: already moving or sequence running");
+        if (doc["degrees"].isNull()) {
+          Serial.println("[GUARD REJECT] Base command missing degrees");
+          sendReject(num, cmdId, "MISSING_FIELD");
           return;
         }
         double targetDegrees = doc["degrees"];
         int    speed         = doc["speed"] | 50;
-        speed                = constrain(speed, MIN_SPEED, MAX_SPEED);
 
         // فحص حدود الأمان الفيزيائية للقاعدة
         if (targetDegrees < MIN_BASE_DEGREES || targetDegrees > MAX_BASE_DEGREES) {
           Serial.printf("[GUARD REJECT] Base degrees out of bounds: %.2f (Min: %.1f, Max: %.1f)\n",
                         targetDegrees, MIN_BASE_DEGREES, MAX_BASE_DEGREES);
+          sendReject(num, cmdId, "OUT_OF_RANGE");
           return;
         }
+        if (isBaseMoving || runningSequence) {
+          Serial.println("[GUARD] Base command ignored: already moving or sequence running");
+          sendReject(num, cmdId, "BUSY");
+          return;
+        }
+        speed = constrain(speed, MIN_SPEED, MAX_SPEED);
 
         int stepperSpeed = map(speed, 1, 100, 100, 2000);
 
+        sendAck(num, cmdId);
         forceStop = false;
         double deltaDegrees = targetDegrees - currentBaseDegrees;
         if (abs(deltaDegrees) > 0.5) {
           MoveBaseDegrees(deltaDegrees, stepperSpeed);
         }
+        if (forceStop) sendErrorFrame(num, cmdId, "INTERRUPTED");
+        else           sendDone(num, cmdId);
       }
 
       // ── إيقاف طارئ ───────────────────────────────────────────────
@@ -262,12 +353,16 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         digitalWrite(LED_SEQ1, LOW);
         digitalWrite(LED_SEQ2, LOW);
         Serial.println("EMERGENCY STOP!");
+        sendAck(num, cmdId);
+        sendDone(num, cmdId);
         sendStatusToClient();
       }
 
       // ── إيقاف مؤقت ───────────────────────────────────────────────
       else if (strcmp(commandType, "pause") == 0) {
         softwarePause = true;
+        sendAck(num, cmdId);
+        sendDone(num, cmdId);
         sendStatusToClient();
       }
 
@@ -275,15 +370,22 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       else if (strcmp(commandType, "resume") == 0) {
         softwarePause = false;
         forceStop     = false;
+        sendAck(num, cmdId);
+        sendDone(num, cmdId);
         sendStatusToClient();
       }
 
-      // ── تغيير الوضع [FIX 3] ──────────────────────────────────────
+      // ── تغيير الوضع [FIX 3 + FIX 5] ──────────────────────────────────────
       // Flutter بترسل: { "type": "mode", "mode": "auto" }
       //             أو { "type": "mode", "mode": "manual" }
       //             أو { "type": "mode", "mode": "seq1" }
-      //             أو { "type": "mode", "mode": "seq2" }
+      // ملاحظة: "seq2" مرفوض — Sequence2() غير معرّفة (SEQUENCE_NOT_IMPLEMENTED)
       else if (strcmp(commandType, "mode") == 0) {
+        if (doc["mode"].isNull()) {
+          Serial.println("[GUARD REJECT] Mode command missing mode");
+          sendReject(num, cmdId, "MISSING_FIELD");
+          break;
+        }
         const char* mode = doc["mode"];
 
         if (strcmp(mode, "auto") == 0 || strcmp(mode, "seq1") == 0) {
@@ -296,17 +398,14 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
             digitalWrite(LED_SEQ1, HIGH);
             digitalWrite(LED_SEQ2, LOW);
           }
+          sendAck(num, cmdId);
+          sendDone(num, cmdId);
         }
         else if (strcmp(mode, "seq2") == 0) {
-          // [FIX 3] تشغيل التسلسل 2 بوضوح
-          if (!runningSequence) {
-            runningSequence = true;
-            seq2Active      = true;
-            seq1Active      = false;
-            forceStop       = false;
-            digitalWrite(LED_SEQ2, HIGH);
-            digitalWrite(LED_SEQ1, LOW);
-          }
+          // [FIX 5] التسلسل 2 غير معرّف — رفض صريح بدل التشغيل الصامت الفارغ
+          Serial.println("[GUARD REJECT] seq2 not implemented");
+          sendReject(num, cmdId, "SEQUENCE_NOT_IMPLEMENTED");
+          break;
         }
         else if (strcmp(mode, "manual") == 0) {
           // [FIX 3] إيقاف كل التسلسلات والعودة للوضع اليدوي
@@ -317,8 +416,19 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
           digitalWrite(LED_SEQ1, LOW);
           digitalWrite(LED_SEQ2, LOW);
           Serial.println("Switched to MANUAL mode");
+          sendAck(num, cmdId);
+          sendDone(num, cmdId);
+        }
+        else {
+          Serial.printf("[GUARD REJECT] Unknown mode: %s\n", mode);
+          sendReject(num, cmdId, "INVALID_MODE");
+          break;
         }
         sendStatusToClient();
+      }
+      else {
+        Serial.printf("[GUARD REJECT] Unknown command type: %s\n", commandType);
+        sendReject(num, cmdId, "UNKNOWN_COMMAND");
       }
       break;
     }

@@ -10,12 +10,13 @@ abstract class RobotControlRepo {
   Future<Either<Failure, void>> connect(String url);
   Future<Either<Failure, void>> disconnect();
   Future<Either<Failure, RobotArmEntity>> getCurrentStatus();
+  Future<Either<Failure, String?>> getConnectionUrl();
   
   // Controls
   Future<Either<Failure, void>> moveServo(int servoId, int startAngle, int endAngle, int speed);
   Future<Either<Failure, void>> setServoAngle(int servoId, int angle, int speed);
-  Future<Either<Failure, void>> moveLinearRail(double distance, int speed);
-  Future<Either<Failure, void>> setLinearPosition(double position, int speed);
+  Future<Either<Failure, void>> moveLinearRail(double distance, int speed, {Duration? timeout});
+  Future<Either<Failure, void>> setLinearPosition(double position, int speed, {Duration? timeout});
   Future<Either<Failure, void>> rotateBase(double degrees, int speed);
   Future<Either<Failure, void>> setBaseRotation(double degrees, int speed);
   
