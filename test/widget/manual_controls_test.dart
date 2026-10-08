@@ -25,7 +25,7 @@ void main() {
       int? committed;
       await tester.pumpWidget(harness(ServoControlWidget(
         servo: testServo,
-        onAngleChanged: (_, __) {},
+        onAngleChanged: (angle, speed) {},
         onAngleCommitted: (angle, _) => committed = angle,
       )));
       final slider = tester.widget<Slider>(find.byType(Slider));
@@ -39,8 +39,8 @@ void main() {
         (WidgetTester tester) async {
       await tester.pumpWidget(harness(ServoControlWidget(
         servo: testServo.copyWith(isMoving: true),
-        onAngleChanged: (_, __) {},
-        onAngleCommitted: (_, __) {},
+        onAngleChanged: (angle, speed) {},
+        onAngleCommitted: (angle, speed) {},
       )));
       final slider = tester.widget<Slider>(find.byType(Slider));
       expect(slider.onChanged, isNull);
@@ -56,8 +56,8 @@ void main() {
             targetDegrees: 10,
             speed: 50,
             isMoving: true),
-        onRotationChanged: (_, __) {},
-        onRotationCommitted: (_, __) {},
+        onRotationChanged: (degrees, speed) {},
+        onRotationCommitted: (degrees, speed) {},
       )));
       final slider = tester.widget<Slider>(find.byType(Slider));
       expect(slider.onChanged, isNull);
@@ -73,8 +73,8 @@ void main() {
             targetDegrees: 0,
             speed: 50,
             isMoving: false),
-        onRotationChanged: (_, __) {},
-        onRotationCommitted: (_, __) {},
+        onRotationChanged: (degrees, speed) {},
+        onRotationCommitted: (degrees, speed) {},
       )));
       final slider = tester.widget<Slider>(find.byType(Slider));
       expect(slider.min, -180.0);

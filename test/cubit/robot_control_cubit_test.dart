@@ -84,7 +84,7 @@ void main() {
 
     test('movement guard blocks a second command while moving', () async {
       final gate = Completer<Either<Failure, void>>();
-      repo.onSetServo = (_, __, ___) => gate.future;
+      repo.onSetServo = (servoId, angle, speed) => gate.future;
       await cubit.connect('ws://x');
 
       final first = cubit.setServoAngle(1, 100, 50);
@@ -102,7 +102,7 @@ void main() {
     });
 
     test('REJECT surfaces a failure and unlocks the axis', () async {
-      repo.onSetServo = (_, __, ___) async => const Left(Failure(
+      repo.onSetServo = (servoId, angle, speed) async => const Left(Failure(
           'Target is outside the robot safety limits.',
           type: FailureType.rejected));
       await cubit.connect('ws://x');
@@ -116,7 +116,7 @@ void main() {
     });
 
     test('repository timeout failure is surfaced, not swallowed', () async {
-      repo.onSetLinear = (_, __) async =>
+      repo.onSetLinear = (position, speed) async =>
           const Left(Failure('timed out', type: FailureType.timeout));
       await cubit.connect('ws://x');
       await cubit.setLinearPosition(20, 50);
@@ -149,7 +149,7 @@ void main() {
     });
 
     test('clearFailure removes the surfaced failure', () async {
-      repo.onSetBase = (_, __) async =>
+      repo.onSetBase = (degrees, speed) async =>
           const Left(Failure('busy', type: FailureType.rejected));
       await cubit.connect('ws://x');
       await cubit.setBaseRotation(10, 50);
