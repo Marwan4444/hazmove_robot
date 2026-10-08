@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fpdart/fpdart.dart';
 import 'package:hazmove_robot/core/error/failure.dart';
 import 'package:hazmove_robot/modules/robot_control/data/models/movement_preset_model.dart';
 import 'package:hazmove_robot/modules/robot_control/data/protocol/robot_response.dart';
