@@ -34,13 +34,50 @@ class AppConstants {
 }
 
 class RobotCommands {
+  // ── Commands (Flutter → ESP32) ──────────────────────────────────────
   static const String servo = 'servo';
   static const String linear = 'linear';
   static const String base = 'base';
   static const String stop = 'stop';
   static const String pause = 'pause';
   static const String resume = 'resume';
+  static const String mode = 'mode';
+  // ── Responses (ESP32 → Flutter) ─────────────────────────────────────
   static const String status = 'status';
+  static const String ack = 'ack';
+  static const String done = 'done';
+  static const String reject = 'reject';
+  static const String error = 'error';
+
+  // ── Shared JSON keys ────────────────────────────────────────────────
+  static const String commandId = 'commandId';
+  static const String reason = 'reason';
+  static const String statusField = 'status';
+  static const String acceptedValue = 'accepted';
+  static const String completedValue = 'completed';
+
+  // ── Reject / error reasons (see docs/protocol.md §7) ────────────────
+  static const String reasonOutOfRange = 'OUT_OF_RANGE';
+  static const String reasonInvalidServoId = 'INVALID_SERVO_ID';
+  static const String reasonBusy = 'BUSY';
+  static const String reasonInvalidMode = 'INVALID_MODE';
+  static const String reasonSequenceNotImplemented = 'SEQUENCE_NOT_IMPLEMENTED';
+  static const String reasonMissingField = 'MISSING_FIELD';
+  static const String reasonUnknownCommand = 'UNKNOWN_COMMAND';
+  static const String reasonInvalidJson = 'INVALID_JSON';
+  static const String reasonInterrupted = 'INTERRUPTED';
+}
+
+/// Mode values accepted by the `mode` command (see docs/protocol.md §2.7).
+/// NOTE: `seq2` is intentionally unsupported — `Sequence2()` is an empty
+/// firmware stub. The app must not offer Mode 2 (TODO: implement or remove).
+class RobotModes {
+  static const String manual = 'manual';
+  static const String seq1 = 'seq1';
+  static const String seq2 = 'seq2';
+
+  /// Backwards-compatibility alias of [seq1] (legacy clients send `auto`).
+  static const String auto = 'auto';
 }
 
 class ServoIds {
