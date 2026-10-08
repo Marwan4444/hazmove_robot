@@ -55,7 +55,9 @@ class ConnectionStatusCard extends StatelessWidget {
                   ),
                 if (state.failure != null)
                   Text(
-                    state.failure!.message,
+                    // Prefer the localized banner; dynamic details
+                    // (reject reasons, validation values) fall back to raw.
+                    state.failure!.messageKey?.tr() ?? state.failure!.message,
                     style: const TextStyle(
                       color: Colors.redAccent,
                       fontSize: 12,

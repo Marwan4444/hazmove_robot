@@ -52,5 +52,23 @@ void main() {
       expect(const Failure('boom', type: FailureType.firmwareError).userMessage,
           contains('boom'));
     });
+
+    test('exposes localization keys for fixed-text failures', () {
+      expect(
+          const Failure('x', type: FailureType.noInternet).messageKey,
+          'errors.no_connection');
+      expect(const Failure('x', type: FailureType.disconnected).messageKey,
+          'errors.disconnected');
+      expect(const Failure('x', type: FailureType.timeout).messageKey,
+          'errors.timeout');
+      expect(const Failure('x', type: FailureType.cancelled).messageKey,
+          'errors.cancelled');
+      // Dynamic-detail failures keep raw messages.
+      expect(const Failure('OUT', type: FailureType.rejected).messageKey,
+          isNull);
+      expect(
+          const Failure('bad', type: FailureType.invalidInput).messageKey,
+          isNull);
+    });
   });
 }

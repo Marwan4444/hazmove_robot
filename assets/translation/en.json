@@ -93,5 +93,13 @@
     "stop": "Stop",
     "manual_disabled_title": "Manual Control Disabled",
     "manual_disabled_desc": "The robot is currently running in Auto Mode.\nPlease stop the active mode first to control manually."
+  },
+  "errors": {
+    "no_connection": "No connection to the robot. Check Wi-Fi and reconnect.",
+    "disconnected": "Robot is not connected. Connect first, then retry.",
+    "timeout": "Robot did not respond in time. Check the connection and retry.",
+    "cancelled": "Movement cancelled.",
+    "firmware_error": "Robot reported an error. Please try again.",
+    "unknown": "Something went wrong. Please try again."
   }
 }

@@ -67,6 +67,20 @@ void main() {
           findsOneWidget);
     });
 
+    testWidgets('localizes fixed-text failures via their message key',
+        (WidgetTester tester) async {
+      // Timeout failures carry a key; under test `.tr()` falls back to it.
+      const state = RobotControlState(
+        connectionStatus: ConnectionStatus.connected,
+        robotArm: null,
+        failure: Failure('raw timeout text', type: FailureType.timeout),
+      );
+      await tester.pumpWidget(harness(state));
+      await tester.pump();
+      expect(find.text('errors.timeout'), findsOneWidget);
+      expect(find.text('raw timeout text'), findsNothing);
+    });
+
     testWidgets('live arm state does not break the card',
         (WidgetTester tester) async {
       await tester.pumpWidget(harness(RobotControlState(

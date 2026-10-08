@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../services/localization/locale_keys.g.dart';
 
 enum FailureType {
   badRequest,
@@ -31,6 +32,29 @@ class Failure extends Equatable {
   final FailureType type;
 
   const Failure(this.message, {this.type = FailureType.unknown});
+
+  /// Localization key for fixed-text failures. When non-null, the UI shows
+  /// `messageKey.tr()` instead of [message]. Failures carrying dynamic
+  /// detail (invalid input values, firmware reject reasons) return `null`
+  /// and fall back to the English [message].
+  String? get messageKey {
+    switch (type) {
+      case FailureType.noInternet:
+        return LocaleKeys.errors_no_connection;
+      case FailureType.disconnected:
+        return LocaleKeys.errors_disconnected;
+      case FailureType.timeout:
+        return LocaleKeys.errors_timeout;
+      case FailureType.cancelled:
+        return LocaleKeys.errors_cancelled;
+      case FailureType.firmwareError:
+        return LocaleKeys.errors_firmware_error;
+      case FailureType.unknown:
+        return LocaleKeys.errors_unknown;
+      default:
+        return null;
+    }
+  }
 
   /// User-facing message: safe to show in a SnackBar. Never exposes raw
   /// transport dumps; keeps the technical [message] for logs.

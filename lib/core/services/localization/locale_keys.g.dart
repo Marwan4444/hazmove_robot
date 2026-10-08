@@ -88,5 +88,12 @@ abstract class  LocaleKeys {
   static const auto_modes_manual_disabled_title = 'auto_modes.manual_disabled_title';
   static const auto_modes_manual_disabled_desc = 'auto_modes.manual_disabled_desc';
   static const auto_modes = 'auto_modes';
+  static const errors_no_connection = 'errors.no_connection';
+  static const errors_disconnected = 'errors.disconnected';
+  static const errors_timeout = 'errors.timeout';
+  static const errors_cancelled = 'errors.cancelled';
+  static const errors_firmware_error = 'errors.firmware_error';
+  static const errors_unknown = 'errors.unknown';
+  static const errors = 'errors';
 
 }
