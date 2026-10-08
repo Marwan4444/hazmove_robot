@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import '../../../../modules/robot_control/domain/entities/robot_arm_entity.dart';
+import '../../../../modules/robot_control/domain/enums/robot_enums.dart';
 import '../../../../modules/robot_control/domain/repo/robot_control_repo.dart';
 
 enum AutoModeType { none, mode1, mode2 }
@@ -30,12 +33,51 @@ class AutoModesState extends Equatable {
 
 class AutoModesCubit extends Cubit<AutoModesState> {
   final RobotControlRepo _repository;
+  StreamSubscription? _statusSub;
 
   AutoModesCubit({required RobotControlRepo repository})
       : _repository = repository,
-        super(const AutoModesState());
+        super(const AutoModesState()) {
+    _subscribeToStatus();
+  }
+
+  void _subscribeToStatus() {
+    _statusSub = _repository.robotStatus.listen((result) {
+      result.fold(
+        (_) => null,
+        (robotArm) => _handleRobotStatus(robotArm),
+      );
+    });
+  }
+
+  void _handleRobotStatus(RobotArmEntity robotArm) {
+    if (robotArm.mode == RobotMode.seq1) {
+      final modeState = robotArm.status == RobotStatus.paused
+          ? AutoModeState.paused
+          : AutoModeState.running;
+      emit(state.copyWith(currentMode: AutoModeType.mode1, modeState: modeState));
+    } else if (robotArm.mode == RobotMode.seq2) {
+      final modeState = robotArm.status == RobotStatus.paused
+          ? AutoModeState.paused
+          : AutoModeState.running;
+      emit(state.copyWith(currentMode: AutoModeType.mode2, modeState: modeState));
+    } else {
+      // If robot is in manual or idle, sequence is no longer running on ESP32
+      if (state.modeState != AutoModeState.idle || state.currentMode != AutoModeType.none) {
+        emit(state.copyWith(
+          currentMode: AutoModeType.none,
+          modeState: AutoModeState.idle,
+        ));
+      }
+    }
+  }
 
   Future<void> startMode(AutoModeType type) async {
+    // TODO(hardware): Mode 2 disabled — Sequence2() is an empty firmware
+    // stub and the firmware rejects `seq2` with SEQUENCE_NOT_IMPLEMENTED.
+    // Re-enable only with a safety-reviewed Sequence2 choreography
+    // (see docs/protocol.md §5).
+    if (type == AutoModeType.mode2) return;
     if (state.modeState == AutoModeState.running || state.modeState == AutoModeState.paused) return;
     
     emit(state.copyWith(currentMode: type, modeState: AutoModeState.running));
@@ -63,5 +105,11 @@ class AutoModesCubit extends Cubit<AutoModesState> {
     emit(state.copyWith(currentMode: AutoModeType.none, modeState: AutoModeState.idle));
     await _repository.stopAllMovements();
     await _repository.setMode('manual');
+  }
+
+  @override
+  Future<void> close() {
+    _statusSub?.cancel();
+    return super.close();
   }
 }

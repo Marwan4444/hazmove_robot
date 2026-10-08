@@ -28,13 +28,17 @@ class AutoModesSection extends StatelessWidget {
               onTap: () => context.read<AutoModesCubit>().startMode(AutoModeType.mode1),
             ),
             const SizedBox(height: 20),
-            _buildModeCard(
+            // TODO(hardware): Auto Mode 2 is disabled on purpose.
+            // Sequence2() is an empty stub in firmware (it would run zero
+            // motions) and the firmware rejects `mode: seq2` with
+            // SEQUENCE_NOT_IMPLEMENTED. Do NOT re-enable this card until a
+            // real, safety-reviewed Sequence2 choreography exists and both
+            // sides use the same protocol value (see docs/protocol.md §5).
+            // The tile below is intentionally non-interactive.
+            _buildDisabledModeTile(
               context: context,
               title: LocaleKeys.auto_modes_mode2.tr(),
-              description: LocaleKeys.auto_modes_mode2_desc.tr(),
-              icon: Icons.smart_toy_rounded,
-              accentColor: context.accentGreen,
-              onTap: () => context.read<AutoModesCubit>().startMode(AutoModeType.mode2),
+              subtitle: 'Planned — firmware sequence not defined yet',
             ),
           ],
         );
@@ -120,6 +124,76 @@ class AutoModesSection extends StatelessWidget {
                 Icons.play_arrow_rounded,
                 size: 20,
                 color: accentColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Non-interactive placeholder for the unimplemented Mode 2.
+  /// Deliberately has no `onTap` so the app never offers a dead feature.
+  Widget _buildDisabledModeTile({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+  }) {
+    final muted = context.textSecondary.withOpacity(0.7);
+    return Opacity(
+      opacity: 0.55,
+      child: GlassContainer(
+        borderRadius: BorderRadius.circular(24),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+        blur: 20,
+        border: Border.all(color: context.cardBorder, width: 1),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: muted.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: muted.withOpacity(0.25), width: 1),
+              ),
+              child: Icon(Icons.smart_toy_outlined, size: 28, color: muted),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: context.textPrimary.withOpacity(0.6),
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: muted, fontSize: 12, height: 1.3),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: muted.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: muted.withOpacity(0.25)),
+              ),
+              child: Text(
+                'SOON',
+                style: TextStyle(
+                  color: muted,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  letterSpacing: 1.2,
+                ),
               ),
             ),
           ],
