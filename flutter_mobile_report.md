@@ -118,7 +118,7 @@ sequenceDiagram
   * The user drags the slider to adjust coordinates.
   * If a manual override is needed, the user taps the red "Stop" or orange "Pause" buttons at the bottom.
 * **Technical Details**:
-  * **Actuator Units**: Base platform uses degrees (0°-360°), Linear Rail uses centimeters (0.0-100.0cm), and joint servos use degrees (0°-180°).
+  * **Actuator Units**: Base platform uses degrees (-180°-180°), Linear Rail uses centimeters (0.0-45.0cm), and joint servos use degrees (0°-180°).
   * **Visual Synchronization**: Selecting a joint card dynamically highlights the corresponding joint link in the 3D isometric simulation widget.
   * **Emergency Stops**: Tapping "Stop" sends a raw JSON command (type: `'stop'`) that aborts all physical loops on the ESP32 immediately.
 

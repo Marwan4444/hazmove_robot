@@ -164,12 +164,12 @@ RobotArmModel (الحالة الكلية للروبوت)
 
 #### 2. LinearRailModel (`lib/modules/robot_control/domain/models/linear_rail_model.dart`)
 يتحكم في موضع المنصة الروبوتية على السكة الخطية:
-*   `currentPosition` (double): الموضع الحالي (0.0 - 100.0 سم).
+*   `currentPosition` (double): الموضع الحالي (0.0 - 45.0 سم — الحد الفيزيائي الموثّق، راجع docs/protocol.md).
 *   `targetPosition` (double): الموضع الهدف.
 *   `speed` (int): سرعة الحركة الخطية.
 
 #### 3. BaseRotationModel (`lib/modules/robot_control/domain/models/base_rotation_model.dart`)
-يتحكم في الدوران الكلي لقاعدة الروبوت (0° - 360°).
+يتحكم في الدوران الكلي لقاعدة الروبوت (-180° - 180° — الحد الفيزيائي الموثّق، راجع docs/protocol.md).
 
 ---
 
