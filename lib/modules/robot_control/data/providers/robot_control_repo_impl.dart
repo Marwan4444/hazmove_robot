@@ -36,15 +36,21 @@ class RobotControlRepoImpl implements RobotControlRepo {
   /// Generous per-command ceilings. The UI safety timers (cubit) are
   /// deliberately LONGER so the repository timeout always wins first and the
   /// cubit timer stays a purely defensive fallback.
-  static const Duration servoAwaitTimeout = Duration(seconds: 15);
-  static const Duration baseAwaitTimeout = Duration(seconds: 30);
-  static const Duration linearAwaitTimeout = Duration(seconds: 120);
-  static const Duration controlAwaitTimeout = Duration(seconds: 10);
+  ///
+  /// Injectable via the constructor for tests (defaults are production values).
+  final Duration servoAwaitTimeout;
+  final Duration baseAwaitTimeout;
+  final Duration linearAwaitTimeout;
+  final Duration controlAwaitTimeout;
 
   RobotControlRepoImpl({
     required this.remoteDataSource,
     required this.localDataSource,
     this.networkInfo,
+    this.servoAwaitTimeout = const Duration(seconds: 15),
+    this.baseAwaitTimeout = const Duration(seconds: 30),
+    this.linearAwaitTimeout = const Duration(seconds: 120),
+    this.controlAwaitTimeout = const Duration(seconds: 10),
   }) {
     _responseSub =
         remoteDataSource.commandResponses.listen(commandTracker.resolve);
@@ -155,7 +161,7 @@ class RobotControlRepoImpl implements RobotControlRepo {
     try {
       await remoteDataSource.sendCommand(command.toJson());
     } catch (e) {
-      commandTracker.cancel(command.commandId);
+      commandTracker.discard(command.commandId);
       return Left(Failure.fromException(e));
     }
     try {
@@ -417,7 +423,7 @@ class RobotControlRepoImpl implements RobotControlRepo {
     return Future.value(const Right(null));
   }
 
-  static Duration _presetStepTimeout(RobotCommand command) {
+  Duration _presetStepTimeout(RobotCommand command) {
     if (command is LinearCommand) return linearAwaitTimeout;
     if (command is BaseCommand) return baseAwaitTimeout;
     if (command is ServoCommand) return servoAwaitTimeout;

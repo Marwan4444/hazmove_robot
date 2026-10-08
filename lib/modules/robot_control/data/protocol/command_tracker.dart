@@ -60,6 +60,16 @@ class CommandTracker {
     return false;
   }
 
+  /// Silently drops one tracked command without completing its future.
+  /// Use when the send itself failed and the caller already returned — the
+  /// future is orphaned, so completing it with an error would surface as an
+  /// unhandled async error. Returns `true` if an entry was removed.
+  bool discard(String commandId) {
+    final removed = _pending.remove(commandId) != null;
+    _acknowledged.remove(commandId);
+    return removed;
+  }
+
   /// Cancels one tracked command (e.g. send failed after tracking).
   /// Returns `true` if an entry was removed.
   bool cancel(String commandId) {

@@ -21,27 +21,29 @@ abstract class NetworkInfo {
 }
 
 class NetworkInfoImpl implements NetworkInfo {
-  /// Injectable for tests. Defaults to the real interface enumeration.
-  final Future<List<NetworkInterface>> Function() listInterfaces;
+  /// Injectable probe for tests. The default enumerates real interfaces:
+  /// `true` when any non-loopback IPv4 interface exists (covers the
+  /// ESP32-AP-without-internet case), fail-open `true` when enumeration
+  /// itself throws (e.g. web) since the WebSocket handshake stays
+  /// authoritative.
+  final Future<bool> Function() probeNetwork;
 
-  NetworkInfoImpl({Future<List<NetworkInterface>> Function()? listInterfaces})
-      : listInterfaces = listInterfaces ??
-            (() => NetworkInterface.list(
-                includeLoopback: false, type: InternetAddressType.IPv4));
+  NetworkInfoImpl({Future<bool> Function()? probeNetwork})
+      : probeNetwork = probeNetwork ?? _defaultProbe;
 
-  @override
-  Future<bool> get isConnected async {
+  static Future<bool> _defaultProbe() async {
     try {
-      final interfaces = await listInterfaces();
+      final interfaces = await NetworkInterface.list(
+          includeLoopback: false, type: InternetAddressType.IPv4);
       return interfaces.any((iface) => iface.addresses.any((addr) =>
           addr.type == InternetAddressType.IPv4 && !addr.isLoopback));
     } catch (_) {
-      // Fail-open: on platforms that cannot enumerate interfaces (e.g. web)
-      // absence of proof is not proof of absence. The WebSocket handshake
-      // remains authoritative and will surface a real failure if needed.
       return true;
     }
   }
+
+  @override
+  Future<bool> get isConnected => probeNetwork();
 
   @override
   Future<Either<Failure, void>> checkConnection() async {
