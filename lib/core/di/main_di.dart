@@ -5,6 +5,7 @@ import '../../modules/robot_control/data/providers/robot_control_remote_data_sou
 import '../../modules/robot_control/data/providers/robot_control_local_data_source_imp.dart';
 import '../../modules/robot_control/domain/repo/robot_control_repo.dart';
 import '../../modules/robot_control/data/providers/robot_control_repo_impl.dart';
+import '../network/network_info.dart';
 import '../../presentation/view/root/cubit/robot_control_cubit.dart';
 import '../../presentation/view/auto/cubit/presets_cubit.dart';
 import '../../presentation/view/auto/cubit/auto_modes_cubit.dart';
@@ -15,6 +16,9 @@ final getIt = GetIt.instance;
 Future<void> initDI() async {
   // Services & Cubits (Theme)
   getIt.registerLazySingleton<ThemeCubit>(() => ThemeCubit());
+
+  // Network availability (advisory; WebSocket stays authoritative)
+  getIt.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl());
 
   // Data Sources
   getIt.registerLazySingleton<RobotRemoteDataSource>(
@@ -29,6 +33,7 @@ Future<void> initDI() async {
     () => RobotControlRepoImpl(
       remoteDataSource: getIt<RobotRemoteDataSource>(),
       localDataSource: getIt<RobotLocalDataSource>(),
+      networkInfo: getIt<NetworkInfo>(),
     ),
   );
 

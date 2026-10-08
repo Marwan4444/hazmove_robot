@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:fpdart/fpdart.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/network/network_info.dart';
 import '../../domain/entities/robot_arm_entity.dart';
 import '../../domain/entities/movement_preset_entity.dart';
 import '../../domain/repo/robot_control_repo.dart';
@@ -23,6 +24,11 @@ class RobotControlRepoImpl implements RobotControlRepo {
   final RobotRemoteDataSource remoteDataSource;
   final RobotLocalDataSource localDataSource;
 
+  /// Advisory pre-check: fails fast when the device provably has no local
+  /// network. `null` skips the check (tests). The WebSocket handshake stays
+  /// authoritative — an AP-only network without internet still proceeds.
+  final NetworkInfo? networkInfo;
+
   /// Correlates outbound `commandId`s with inbound terminal frames.
   final CommandTracker commandTracker = CommandTracker();
   StreamSubscription<RobotResponse>? _responseSub;
@@ -38,6 +44,7 @@ class RobotControlRepoImpl implements RobotControlRepo {
   RobotControlRepoImpl({
     required this.remoteDataSource,
     required this.localDataSource,
+    this.networkInfo,
   }) {
     _responseSub =
         remoteDataSource.commandResponses.listen(commandTracker.resolve);
@@ -64,6 +71,11 @@ class RobotControlRepoImpl implements RobotControlRepo {
   @override
   Future<Either<Failure, void>> connect(String url) async {
     try {
+      final networkCheck = await networkInfo?.checkConnection();
+      if (networkCheck != null && networkCheck.isLeft()) {
+        return networkCheck.fold(
+            (failure) => Left(failure), (_) => const Right(null));
+      }
       await remoteDataSource.connect(url);
       await localDataSource.saveConnectionUrl(url);
       return const Right(null);

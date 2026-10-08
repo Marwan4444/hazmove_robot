@@ -21,6 +21,16 @@ class _ConnectionSectionState extends State<ConnectionSection> {
   void initState() {
     super.initState();
     _urlController.text = AppConstants.defaultWebSocketUrl;
+    _loadSavedUrl();
+  }
+
+  Future<void> _loadSavedUrl() async {
+    final savedUrl = await context.read<RobotControlCubit>().getSavedConnectionUrl();
+    if (savedUrl != null && savedUrl.isNotEmpty && mounted) {
+      setState(() {
+        _urlController.text = savedUrl;
+      });
+    }
   }
 
   @override
