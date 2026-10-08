@@ -4,15 +4,25 @@ import '../../../../core/error/failure.dart';
 import '../../../../modules/robot_control/domain/entities/movement_preset_entity.dart';
 import '../../../../modules/robot_control/domain/repo/robot_control_repo.dart';
 
+enum PresetExecutionStatus { idle, running, completed, cancelled, failed }
+
 class PresetsState extends Equatable {
   final List<MovementPresetEntity> presets;
   final bool isLoading;
   final Failure? failure;
 
+  /// ID of the preset currently executing, if any.
+  final String? runningPresetId;
+
+  /// Outcome of the last finished execution (stays until the next run).
+  final PresetExecutionStatus executionStatus;
+
   const PresetsState({
     this.presets = const [],
     this.isLoading = false,
     this.failure,
+    this.runningPresetId,
+    this.executionStatus = PresetExecutionStatus.idle,
   });
 
   PresetsState copyWith({
@@ -20,16 +30,23 @@ class PresetsState extends Equatable {
     bool? isLoading,
     Failure? failure,
     bool clearFailure = false,
+    String? runningPresetId,
+    bool clearRunning = false,
+    PresetExecutionStatus? executionStatus,
   }) {
     return PresetsState(
       presets: presets ?? this.presets,
       isLoading: isLoading ?? this.isLoading,
       failure: clearFailure ? null : (failure ?? this.failure),
+      runningPresetId:
+          clearRunning ? null : (runningPresetId ?? this.runningPresetId),
+      executionStatus: executionStatus ?? this.executionStatus,
     );
   }
 
   @override
-  List<Object?> get props => [presets, isLoading, failure];
+  List<Object?> get props =>
+      [presets, isLoading, failure, runningPresetId, executionStatus];
 }
 
 class PresetsCubit extends Cubit<PresetsState> {
@@ -49,15 +66,14 @@ class PresetsCubit extends Cubit<PresetsState> {
     final result = await _repository.getPresets();
     result.fold(
       (failure) => emit(state.copyWith(isLoading: false, failure: failure)),
-      (presets) {
+      (presets) async {
         if (presets.isEmpty) {
           // If empty, preload with samples for initial setup
           final samples = _getSamplePresets();
           emit(state.copyWith(isLoading: false, presets: samples));
           // Save them locally so they are cached
-          for (final preset in samples) {
-            _repository.savePreset(preset);
-          }
+          await Future.wait(
+              samples.map((preset) => _repository.savePreset(preset)));
         } else {
           emit(state.copyWith(isLoading: false, presets: presets));
         }
@@ -90,11 +106,35 @@ class PresetsCubit extends Cubit<PresetsState> {
   }
 
   Future<void> executePreset(String presetId) async {
-    emit(state.copyWith(isLoading: true, clearFailure: true));
+    emit(state.copyWith(
+      isLoading: true,
+      clearFailure: true,
+      runningPresetId: presetId,
+      executionStatus: PresetExecutionStatus.running,
+    ));
     final result = await _repository.executePreset(presetId);
     result.fold(
-      (failure) => emit(state.copyWith(isLoading: false, failure: failure)),
-      (_) => emit(state.copyWith(isLoading: false)),
+      (failure) {
+        if (failure.type == FailureType.cancelled) {
+          emit(state.copyWith(
+            isLoading: false,
+            clearRunning: true,
+            executionStatus: PresetExecutionStatus.cancelled,
+          ));
+        } else {
+          emit(state.copyWith(
+            isLoading: false,
+            failure: failure,
+            clearRunning: true,
+            executionStatus: PresetExecutionStatus.failed,
+          ));
+        }
+      },
+      (_) => emit(state.copyWith(
+        isLoading: false,
+        clearRunning: true,
+        executionStatus: PresetExecutionStatus.completed,
+      )),
     );
   }
 

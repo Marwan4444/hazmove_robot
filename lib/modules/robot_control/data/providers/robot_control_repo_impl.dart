@@ -17,6 +17,7 @@ import '../mappers/robot_arm_mapper.dart';
 import '../protocol/command_tracker.dart';
 import '../protocol/robot_command.dart';
 import '../protocol/robot_response.dart';
+import '../services/preset_cancellation_token.dart';
 
 class RobotControlRepoImpl implements RobotControlRepo {
   final RobotRemoteDataSource remoteDataSource;
@@ -247,11 +248,20 @@ class RobotControlRepoImpl implements RobotControlRepo {
     );
   }
 
-  bool _isPresetCancelled = false;
+  // ── Per-execution preset cancellation ────────────────────────────────
+  // Each executePreset() call owns one token, so concurrent executions
+  // never interfere. stopAllMovements() cancels every active token.
+  int _presetExecutionSeq = 0;
+  final Map<int, PresetCancellationToken> _presetExecutions = {};
+
+  /// IDs of currently running preset executions (for UI/tests).
+  List<int> get activePresetExecutions => _presetExecutions.keys.toList();
 
   @override
   Future<Either<Failure, void>> stopAllMovements() {
-    _isPresetCancelled = true;
+    for (final token in _presetExecutions.values) {
+      token.cancel();
+    }
     return _sendAndAwait(StopCommand(), timeout: controlAwaitTimeout);
   }
 
@@ -342,17 +352,22 @@ class RobotControlRepoImpl implements RobotControlRepo {
 
   @override
   Future<Either<Failure, void>> executePreset(String presetId) async {
+    final executionId = ++_presetExecutionSeq;
+    final token = PresetCancellationToken();
+    _presetExecutions[executionId] = token;
     try {
-      _isPresetCancelled = false;
       final presets = await localDataSource.getPresets();
       final preset = presets.firstWhere((p) => p.id == presetId);
 
       for (final step in preset.steps) {
-        if (_isPresetCancelled) break;
+        if (token.isCancelled) break;
 
         final command = _commandFromStep(step.type, step.parameters);
         final result = await _sendAndAwait(command,
             timeout: _presetStepTimeout(command));
+        // Cancellation takes precedence over a transport result so a stop
+        // during a step is reported as cancelled, not as a robot error.
+        if (token.isCancelled) break;
         if (result.isLeft()) {
           return result;
         }
@@ -360,20 +375,34 @@ class RobotControlRepoImpl implements RobotControlRepo {
         if (step.delayMs > 0) {
           final intervals = (step.delayMs / 100).ceil();
           for (int i = 0; i < intervals; i++) {
-            if (_isPresetCancelled) break;
+            if (token.isCancelled) break;
             await Future.delayed(const Duration(milliseconds: 100));
           }
         }
-        if (_isPresetCancelled) break;
+        if (token.isCancelled) break;
       }
-      if (_isPresetCancelled) {
-        return const Left(
-            Failure('Preset execution cancelled.', type: FailureType.cancelled));
+      if (token.isCancelled) {
+        return const Left(Failure('Preset execution cancelled.',
+            type: FailureType.cancelled));
       }
       return const Right(null);
     } catch (e) {
       return Left(Failure.fromException(e));
+    } finally {
+      _presetExecutions.remove(executionId);
     }
+  }
+
+  @override
+  Future<Either<Failure, void>> cancelPresetExecution(int executionId) {
+    final token = _presetExecutions[executionId];
+    if (token == null) {
+      return Future.value(const Left(
+          Failure('No running preset with that ID.',
+              type: FailureType.notFound)));
+    }
+    token.cancel();
+    return Future.value(const Right(null));
   }
 
   static Duration _presetStepTimeout(RobotCommand command) {

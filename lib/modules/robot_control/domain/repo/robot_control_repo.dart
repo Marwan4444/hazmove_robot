@@ -25,6 +25,7 @@ abstract class RobotControlRepo {
   Future<Either<Failure, void>> savePreset(MovementPresetEntity preset);
   Future<Either<Failure, void>> deletePreset(String presetId);
   Future<Either<Failure, void>> executePreset(String presetId);
+  Future<Either<Failure, void>> cancelPresetExecution(int executionId);
   
   // Special controls
   Future<Either<Failure, void>> stopAllMovements();
